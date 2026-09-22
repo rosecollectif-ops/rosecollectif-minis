@@ -283,7 +283,7 @@ async function renderAlbum(){
     if(a.title==='Commissions' && !sub){
       const folders=await getCommissionFolders(a.driveFolder);
       if(folders.length){
-        el.innerHTML='<div class="grid">'+folders.map(folder=>`<a class="card" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}"><div class="thumb">${folder.thumbnailData?imageHtml(folder.thumbnailData,folder.name):'<span class="thumb-placeholder">✦</span>'}</div><div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div></a>`).join('')+'</div>';
+        el.innerHTML='<div class="grid">'+folders.map(folder=>{const thumb=folder.thumbnail||folder.thumbnailData||'';return `<a class="card" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}"><div class="thumb">${thumb?imageHtml(thumb,folder.name):'<span class="thumb-placeholder">✦</span>'}</div><div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div></a>`;}).join('')+'</div>';
         return;
       }
     }
