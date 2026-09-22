@@ -95,12 +95,23 @@ async function renderAlbums(){
   });
 }
 
+function renderMediaFiles(files){
+  return files.map(file=>{
+    if(file.type.indexOf('video/')===0){
+      return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
+    }
+    return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${driveImageUrl(file.thumbnail)}" alt="" loading="lazy"></a>`;
+  }).join('');
+}
+
 async function renderAlbum(){
   const el=document.querySelector('#album-view');
   if(!el)return;
 
   const albums=await getAlbums();
-  const name=new URLSearchParams(location.search).get('album')||albums[0]?.title;
+  const params=new URLSearchParams(location.search);
+  const name=params.get('album')||albums[0]?.title;
+  const sub=params.get('sub');
   const a=albums.find(x=>x.title===name)||albums[0];
 
   if(!a){
@@ -119,24 +130,35 @@ async function renderAlbum(){
   el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
 
   try{
-    const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
+    // Only the Commissions album can contain website sub-albums.
+    if(a.title==='Commissions' && !sub){
+      const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder)+'&subalbums=1');
+      const data=await response.json();
+
+      if(data.error)throw new Error(data.error);
+
+      if(data.folders && data.folders.length){
+        el.innerHTML=`<div class="grid">${data.folders.map((folder,i)=>`
+          <a class="card" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}">
+            <div class="thumb">${folder.thumbnail ? `<img src="${driveImageUrl(folder.thumbnail)}" alt="" loading="lazy">` : '<span class="thumb-placeholder">✦</span>'}</div>
+            <div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div>
+          </a>`).join('')}</div>`;
+        return;
+      }
+    }
+
+    const folderToLoad=sub || a.driveFolder;
+    const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(folderToLoad));
     const data=await response.json();
 
     if(data.error)throw new Error(data.error);
 
     if(!data.files || !data.files.length){
-      el.innerHTML='<div class="album-empty"><h3>No web photos in this folder</h3></div>';
+      el.innerHTML='<div class="album-empty"><h3>No photos in this folder</h3></div>';
       return;
     }
 
-    const items=data.files.map(file=>{
-      if(file.type.indexOf('video/')===0){
-        return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
-      }
-      return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${driveImageUrl(file.thumbnail)}" alt="" loading="lazy"></a>`;
-    }).join('');
-
-    el.innerHTML=`<div class="media-grid">${items}</div>`;
+    el.innerHTML=`<div class="media-grid">${renderMediaFiles(data.files)}</div>`;
   }catch(error){
     console.error(error);
     el.innerHTML='<div class="album-empty"><h3>We could not load this gallery</h3><p>Please check the Google Drive folder permissions and Apps Script deployment.</p></div>';
