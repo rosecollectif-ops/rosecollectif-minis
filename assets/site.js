@@ -54,8 +54,6 @@ async function getAlbums(){
 
 function driveImageUrl(url){
   if(!url)return '';
-  const match=url.match(/[?&]id=([^&]+)/);
-  if(match)return 'https://drive.google.com/uc?export=view&id='+encodeURIComponent(match[1]);
   return url;
 }
 
@@ -173,7 +171,7 @@ function setupContact(){
   }else{
     f.addEventListener('submit',e=>{
       e.preventDefault();
-      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js?v=4 first.');
+      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js?v=5 first.');
     });
   }
 }
