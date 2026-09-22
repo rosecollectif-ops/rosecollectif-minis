@@ -242,7 +242,6 @@ async function renderAlbum(){
   const params=new URLSearchParams(location.search);
   const name=params.get('album')||(D.albums||[])[0]?.title;
   const sub=params.get('sub');
-  el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
 
   const a=await resolveAlbum(name);
   if(!a){
@@ -252,9 +251,10 @@ async function renderAlbum(){
   }
 
   document.querySelector('#album-title').textContent=a.title;
+  el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
 
   if(!a.driveFolder || !D.driveEndpoint){
-    el.innerHTML='<div class="album-empty"><h3>No photos in this gallery yet</h3></div>';
+    el.innerHTML='<div class="album-empty"><h3>This gallery is not connected yet</h3><p>The gallery cover is ready, but the photo folder could not be found.</p></div>';
     return;
   }
 
