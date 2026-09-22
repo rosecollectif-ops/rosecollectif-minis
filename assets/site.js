@@ -81,11 +81,11 @@ async function renderAlbums(){
   const albums=await getAlbums();
 
   if(!albums.length){
-    el.innerHTML='<div class="album-empty"><h3>No albums found</h3><p>Add album folders to the Google Drive gallery folder.</p></div>';
+    el.innerHTML='<div class="album-empty"><h3>No albums found</h3><p></p></div>';
     return;
   }
 
-  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3><p class="muted">Open album</p></div></a>`).join('');
+  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
 
   albums.forEach(async(a,i)=>{
     const thumb=await getAlbumThumbnail(a);
@@ -125,7 +125,7 @@ async function renderAlbum(){
     if(data.error)throw new Error(data.error);
 
     if(!data.files || !data.files.length){
-      el.innerHTML='<div class="album-empty"><h3>No web photos in this folder</h3><p>Add JPG, PNG or WebP files directly to the main Google Drive folder. Subfolders are ignored.</p></div>';
+      el.innerHTML='<div class="album-empty"><h3>No web photos in this folder</h3></div>';
       return;
     }
 
@@ -151,7 +151,7 @@ function setupContact(){
   }else{
     f.addEventListener('submit',e=>{
       e.preventDefault();
-      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js first.');
+      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js?v=4 first.');
     });
   }
 }
