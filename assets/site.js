@@ -5,6 +5,7 @@ document.documentElement.style.setProperty('--accent',D.appearance.accent);
 document.documentElement.style.setProperty('--card',D.appearance.card);
 
 let albumsPromise=null;
+const CACHE_MS=5*60*1000;
 
 function common(){
   document.querySelectorAll('[data-site-name]').forEach(e=>e.textContent=D.siteName);
@@ -17,29 +18,52 @@ function common(){
 
 function escapeHtml(value){
   return String(value).replace(/[&<>"']/g,char=>({
-    '&':'&amp;',
-    '<':'&lt;',
-    '>':'&gt;',
-    '"':'&quot;',
-    "'":'&#039;'
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
   }[char]));
+}
+
+function cacheGet(key){
+  try{
+    const item=JSON.parse(sessionStorage.getItem(key)||'null');
+    if(item && Date.now()-item.time<CACHE_MS)return item.data;
+  }catch(e){}
+  return null;
+}
+
+function cacheSet(key,data){
+  try{sessionStorage.setItem(key,JSON.stringify({time:Date.now(),data}));}catch(e){}
+}
+
+async function fetchJson(url){
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),12000);
+  try{
+    const response=await fetch(url,{signal:controller.signal});
+    if(!response.ok)throw new Error('HTTP '+response.status);
+    return await response.json();
+  }finally{
+    clearTimeout(timer);
+  }
 }
 
 async function getAlbums(){
   if(albumsPromise)return albumsPromise;
 
   albumsPromise=(async()=>{
+    const cached=cacheGet('rosecollectif-albums');
+    if(cached)return cached;
+
     if(D.driveParentFolder && D.driveEndpoint){
       try{
-        const response=await fetch(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
-        const data=await response.json();
-
+        const data=await fetchJson(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
         if(!data.error && Array.isArray(data.folders)){
-          return data.folders.map(folder=>({
+          const albums=data.folders.map(folder=>({
             title:folder.name,
             driveFolder:folder.id,
             thumbnail:folder.thumbnail || ''
           }));
+          cacheSet('rosecollectif-albums',albums);
+          return albums;
         }
       }catch(error){
         console.error('Album discovery error:',error);
@@ -52,18 +76,34 @@ async function getAlbums(){
   return albumsPromise;
 }
 
-function driveImageUrl(url){
-  if(!url)return '';
-  return url;
+function driveImageUrl(value){
+  if(!value)return '';
+  const text=String(value);
+
+  // Our Apps Script currently returns Drive thumbnail URLs. Convert them
+  // to the public Drive viewer endpoint, which is more reliable in <img>.
+  let id='';
+  const match=text.match(/[?&]id=([^&]+)/);
+  if(match)id=decodeURIComponent(match[1]);
+
+  if(!id && /^[A-Za-z0-9_-]{20,}$/.test(text))id=text;
+
+  if(id)return 'https://drive.google.com/uc?export=view&id='+encodeURIComponent(id);
+  return text;
+}
+
+function imageHtml(url,alt=''){
+  const src=driveImageUrl(url);
+  if(!src)return '<span class="thumb-placeholder">✦</span>';
+  return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy" decoding="async" onerror="this.style.display=\'none\';this.parentElement.classList.add(\'image-failed\')">';
 }
 
 async function getAlbumThumbnail(a){
-  if(a.thumbnail) return driveImageUrl(a.thumbnail);
+  if(a.thumbnail)return driveImageUrl(a.thumbnail);
   if(!a.driveFolder || !D.driveEndpoint)return '';
 
   try{
-    const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
-    const data=await response.json();
+    const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
     const image=data.files?.find(f=>f.type?.indexOf('image/')===0);
     return image?.thumbnail ? driveImageUrl(image.thumbnail) : '';
   }catch(error){
@@ -76,10 +116,11 @@ async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
 
+  el.innerHTML='<div class="album-empty"><p>Loading galleries...</p></div>';
   const albums=await getAlbums();
 
   if(!albums.length){
-    el.innerHTML='<div class="album-empty"><h3>No albums found</h3><p></p></div>';
+    el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
     return;
   }
 
@@ -89,17 +130,30 @@ async function renderAlbums(){
     const thumb=await getAlbumThumbnail(a);
     if(!thumb)return;
     const box=document.querySelector('#album-card-'+i+' .thumb');
-    if(box)box.innerHTML=`<img src="${thumb}" alt="" loading="lazy">`;
+    if(box)box.innerHTML=imageHtml(thumb);
   });
 }
 
 function renderMediaFiles(files){
   return files.map(file=>{
     if(file.type.indexOf('video/')===0){
-      return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
+      return `<a class="media-card video-card" href="${escapeHtml(file.url)}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
     }
-    return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${driveImageUrl(file.thumbnail)}" alt="" loading="lazy"></a>`;
+    return `<a class="media-card" href="${escapeHtml(file.url)}" target="_blank" rel="noopener">${imageHtml(file.thumbnail)}</a>`;
   }).join('');
+}
+
+async function getCommissionFolders(folderId){
+  const key='rosecollectif-commission-'+folderId;
+  const cached=cacheGet(key);
+  if(cached)return cached;
+
+  const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderId)+'&subalbums=1');
+  if(data.error)throw new Error(data.error);
+
+  const folders=data.folders||[];
+  cacheSet(key,folders);
+  return folders;
 }
 
 async function renderAlbum(){
@@ -113,53 +167,49 @@ async function renderAlbum(){
   const a=albums.find(x=>x.title===name)||albums[0];
 
   if(!a){
-    document.querySelector('#album-title').textContent='Album not found';
-    el.innerHTML='<div class="album-empty"><h3>Album not found</h3><p>Go back to the galleries and choose an album.</p></div>';
+    document.querySelector('#album-title').textContent='Gallery not found';
+    el.innerHTML='<div class="album-empty"><h3>Gallery not found</h3><p>Go back to the galleries and choose a gallery.</p></div>';
     return;
   }
 
   document.querySelector('#album-title').textContent=a.title;
 
   if(!a.driveFolder){
-    el.innerHTML='<div class="album-empty"><h3>No photos added yet</h3><p>This album is ready for its Google Drive folder.</p></div>';
+    el.innerHTML='<div class="album-empty"><h3>No photos in this gallery yet</h3></div>';
     return;
   }
 
   el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
 
   try{
-    // Only the Commissions album can contain website sub-albums.
+    // Only Commissions can contain website sub-albums.
     if(a.title==='Commissions' && !sub){
-      const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder)+'&subalbums=1');
-      const data=await response.json();
+      const folders=await getCommissionFolders(a.driveFolder);
 
-      if(data.error)throw new Error(data.error);
-
-      if(data.folders && data.folders.length){
-        el.innerHTML=`<div class="grid">${data.folders.map((folder,i)=>`
+      if(folders.length){
+        el.innerHTML='<div class="grid">'+folders.map(folder=>`
           <a class="card" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}">
-            <div class="thumb">${folder.thumbnail ? `<img src="${driveImageUrl(folder.thumbnail)}" alt="" loading="lazy">` : '<span class="thumb-placeholder">✦</span>'}</div>
+            <div class="thumb">${folder.thumbnail?imageHtml(folder.thumbnail):'<span class="thumb-placeholder">✦</span>'}</div>
             <div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div>
-          </a>`).join('')}</div>`;
+          </a>`).join('')+'</div>';
         return;
       }
     }
 
-    const folderToLoad=sub || a.driveFolder;
-    const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(folderToLoad));
-    const data=await response.json();
+    const folderToLoad=sub||a.driveFolder;
+    const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderToLoad));
 
     if(data.error)throw new Error(data.error);
 
     if(!data.files || !data.files.length){
-      el.innerHTML='<div class="album-empty"><h3>No photos in this folder</h3></div>';
+      el.innerHTML='<div class="album-empty"><h3>No photos in this gallery yet</h3></div>';
       return;
     }
 
-    el.innerHTML=`<div class="media-grid">${renderMediaFiles(data.files)}</div>`;
+    el.innerHTML='<div class="media-grid">'+renderMediaFiles(data.files)+'</div>';
   }catch(error){
     console.error(error);
-    el.innerHTML='<div class="album-empty"><h3>We could not load this gallery</h3><p>Please check the Google Drive folder permissions and Apps Script deployment.</p></div>';
+    el.innerHTML='<div class="album-empty"><h3>We could not load this gallery</h3><p>Please try refreshing the page.</p></div>';
   }
 }
 
@@ -171,7 +221,7 @@ function setupContact(){
   }else{
     f.addEventListener('submit',e=>{
       e.preventDefault();
-      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js?v=5 first.');
+      alert('Contact form is ready, but you need to add your free Formspree endpoint in site-data.js.');
     });
   }
 }
