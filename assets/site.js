@@ -212,7 +212,7 @@ function renderMediaFiles(files){
 }
 
 async function getCommissionFolders(folderId){
-  const key='rosecollectif-commission-v4-'+folderId;
+  const key='rosecollectif-commission-v5-'+folderId;
   const cached=cacheGet(key);
   if(cached)return cached;
   const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderId)+'&subalbums=1');
