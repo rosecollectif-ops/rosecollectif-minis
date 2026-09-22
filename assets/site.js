@@ -52,7 +52,7 @@ async function getAlbums(){
   return albumsPromise;
 }
 
-async function driveImageUrl(url){
+function driveImageUrl(url){
   if(!url)return '';
   const match=url.match(/[?&]id=([^&]+)/);
   if(match)return 'https://drive.google.com/uc?export=view&id='+encodeURIComponent(match[1]);
