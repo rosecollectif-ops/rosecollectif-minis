@@ -11,19 +11,31 @@ function common(){
   document.querySelectorAll('[data-social=facebook]').forEach(e=>e.href=D.socials.facebook);
 }
 
-function slug(s){return s.toLowerCase().replace(/&/g,'and').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}
-
-function renderAlbums(){
-  const el=document.querySelector('#album-grid');
-  if(!el)return;
-  el.innerHTML=D.albums.map(a=>`<a class="card" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb">${a.driveFolder?'View photos':'✦'}</div><div class="card-body"><span class="badge">${a.category}</span><h3>${a.title}</h3><p class="muted">Open album</p></div></a>`).join('');
+async function getAlbumThumbnail(a){
+  if(a.thumbnail) return 'https://drive.google.com/thumbnail?id='+encodeURIComponent(a.thumbnail)+'&sz=w1200';
+  if(!a.driveFolder || !D.driveEndpoint) return '';
+  try{
+    const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
+    const data=await response.json();
+    const image=data.files?.find(f=>f.type?.indexOf('image/')===0);
+    return image?.thumbnail || '';
+  }catch(error){
+    console.error('Thumbnail error:',error);
+    return '';
+  }
 }
 
-function renderTicker(){
-  const el=document.querySelector('#ticker');
+async function renderAlbums(){
+  const el=document.querySelector('#album-grid');
   if(!el)return;
-  const names=D.albums.map(a=>`<span class="ticker-item">${a.title}</span>`).join('<span>•</span>');
-  el.innerHTML=`<div class="ticker-track">${names}<span>•</span>${names}</div>`;
+  el.innerHTML=D.albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${a.title}</h3><p class="muted">Open album</p></div></a>`).join('');
+
+  D.albums.forEach(async(a,i)=>{
+    const thumb=await getAlbumThumbnail(a);
+    if(!thumb)return;
+    const box=document.querySelector('#album-card-'+i+' .thumb');
+    if(box) box.innerHTML=`<img src="${thumb}" alt="" loading="lazy">`;
+  });
 }
 
 async function renderAlbum(){
@@ -34,7 +46,6 @@ async function renderAlbum(){
   const a=D.albums.find(x=>x.title===name)||D.albums[0];
 
   document.querySelector('#album-title').textContent=a.title;
-  document.querySelector('#album-category').textContent=a.category;
 
   if(!a.driveFolder){
     el.innerHTML='<div class="album-empty"><h3>No photos added yet</h3><p>This album is ready for its Google Drive folder.</p></div>';
@@ -56,9 +67,9 @@ async function renderAlbum(){
 
     const items=data.files.map(file=>{
       if(file.type.indexOf('video/')===0){
-        return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div><div class="media-name">${file.name}</div></a>`;
+        return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
       }
-      return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${file.thumbnail}" alt="${file.name}" loading="lazy"><div class="media-name">${file.name}</div></a>`;
+      return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${file.thumbnail}" alt="" loading="lazy"></a>`;
     }).join('');
 
     el.innerHTML=`<div class="media-grid">${items}</div>`;
@@ -84,7 +95,6 @@ function setupContact(){
 document.addEventListener('DOMContentLoaded',()=>{
   common();
   renderAlbums();
-  renderTicker();
   renderAlbum();
   setupContact();
 });
