@@ -13,9 +13,9 @@ window.SITE_DATA = {
   driveEndpoint: 'https://script.google.com/macros/s/AKfycbzOezvAS4VJKL_rIX0bQygXv8WwIbIqK1ZTbS31WY1zQA68oGxgTibQp4gaPPIydnVG/exec',
   driveParentFolder: '1t7VCt19EBwzLEa_qb8E2Fxa_84d7pjEL',
   appearance: {
-    background: '#f4f1ec',
-    text: '#202020',
-    accent: '#8d6f5a',
+    background: '#ffffff',
+    text: '#242424',
+    accent: '#9a4f43',
     card: '#ffffff',
     heroImage: ''
   },
