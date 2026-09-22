@@ -53,7 +53,7 @@ function isUsableImageSource(src){
 function imageHtml(value,alt=''){
   const src=imageSource(value);
   if(!isUsableImageSource(src))return '<span class="thumb-placeholder">✦</span>';
-  return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy" decoding="async">';
+  return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" decoding="async">';
 }
 
 function staticAlbums(){
