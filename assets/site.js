@@ -52,15 +52,22 @@ async function getAlbums(){
   return albumsPromise;
 }
 
+async function driveImageUrl(url){
+  if(!url)return '';
+  const match=url.match(/[?&]id=([^&]+)/);
+  if(match)return 'https://drive.google.com/uc?export=view&id='+encodeURIComponent(match[1]);
+  return url;
+}
+
 async function getAlbumThumbnail(a){
-  if(a.thumbnail) return 'https://drive.google.com/thumbnail?id='+encodeURIComponent(a.thumbnail)+'&sz=w1200';
+  if(a.thumbnail) return driveImageUrl(a.thumbnail);
   if(!a.driveFolder || !D.driveEndpoint)return '';
 
   try{
     const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
     const data=await response.json();
     const image=data.files?.find(f=>f.type?.indexOf('image/')===0);
-    return image?.thumbnail || '';
+    return image?.thumbnail ? driveImageUrl(image.thumbnail) : '';
   }catch(error){
     console.error('Thumbnail error:',error);
     return '';
@@ -126,7 +133,7 @@ async function renderAlbum(){
       if(file.type.indexOf('video/')===0){
         return `<a class="media-card video-card" href="${file.url}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
       }
-      return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${file.thumbnail}" alt="" loading="lazy"></a>`;
+      return `<a class="media-card" href="${file.url}" target="_blank" rel="noopener"><img src="${driveImageUrl(file.thumbnail)}" alt="" loading="lazy"></a>`;
     }).join('');
 
     el.innerHTML=`<div class="media-grid">${items}</div>`;
