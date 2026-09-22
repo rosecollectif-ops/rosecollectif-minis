@@ -5,7 +5,8 @@ document.documentElement.style.setProperty('--accent',D.appearance.accent);
 document.documentElement.style.setProperty('--card',D.appearance.card);
 
 let albumsPromise=null;
-const CACHE_MS=5*60*1000;
+const CACHE_MS=10*60*1000;
+let parentFoldersPromise=null;
 
 function common(){
   document.querySelectorAll('[data-site-name]').forEach(e=>e.textContent=D.siteName);
@@ -56,24 +57,39 @@ function imageHtml(value,alt=''){
   return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy" decoding="async">';
 }
 
+async function getParentFolders(){
+  if(parentFoldersPromise)return parentFoldersPromise;
+  parentFoldersPromise=(async()=>{
+    const cached=cacheGet('rosecollectif-parent-folders-v4');
+    if(cached)return cached;
+    if(!D.driveParentFolder || !D.driveEndpoint)return [];
+    try{
+      const data=await fetchJson(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
+      const folders=Array.isArray(data.folders)?data.folders:[];
+      cacheSet('rosecollectif-parent-folders-v4',folders);
+      return folders;
+    }catch(error){
+      console.error('Drive folder discovery error:',error);
+      return [];
+    }
+  })();
+  return parentFoldersPromise;
+}
+
 async function getAlbums(){
   if(albumsPromise)return albumsPromise;
   albumsPromise=(async()=>{
-    const cached=cacheGet('rosecollectif-albums-v3');
+    const cached=cacheGet('rosecollectif-albums-v4');
     if(cached)return cached;
-    if(D.driveParentFolder && D.driveEndpoint){
-      try{
-        const data=await fetchJson(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
-        if(!data.error && Array.isArray(data.folders)){
-          const albums=data.folders.map(folder=>({
-            title:folder.name,
-            driveFolder:folder.id,
-            thumbnail:folder.thumbnailData || ''
-          }));
-          cacheSet('rosecollectif-albums-v3',albums);
-          return albums;
-        }
-      }catch(error){console.error('Album discovery error:',error);}
+    const folders=await getParentFolders();
+    if(folders.length){
+      const albums=folders.map(folder=>({
+        title:folder.name,
+        driveFolder:folder.id,
+        thumbnail:folder.thumbnailData || ''
+      }));
+      cacheSet('rosecollectif-albums-v4',albums);
+      return albums;
     }
     return D.albums||[];
   })();
@@ -95,21 +111,21 @@ async function getAlbumThumbnail(a){
 
 async function applyDriveBackground(){
   if(!D.driveEndpoint || !D.driveParentFolder)return;
-  const cached=cacheGet('rosecollectif-background-v1');
+  const cached=cacheGet('rosecollectif-background-v2');
   if(cached){
     document.body.style.backgroundImage='linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("'+cached+'")';
     document.body.classList.add('has-drive-background');
     return;
   }
   try{
-    const parent=await fetchJson(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
-    const backgroundFolder=(parent.folders||[]).find(folder=>folder.name.toLowerCase()==='background');
+    const parent=await getParentFolders();
+    const backgroundFolder=parent.find(folder=>folder.name.toLowerCase()==='background');
     if(!backgroundFolder)return;
     const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(backgroundFolder.id));
     const image=data.files?.find(file=>file.type?.indexOf('image/')===0);
     const src=imageSource(image);
     if(!isUsableImageSource(src))return;
-    cacheSet('rosecollectif-background-v1',src);
+    cacheSet('rosecollectif-background-v2',src);
     document.body.style.backgroundImage='linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("'+src+'")';
     document.body.classList.add('has-drive-background');
   }catch(error){
@@ -117,22 +133,53 @@ async function applyDriveBackground(){
   }
 }
 
+function renderAlbumCards(el,albums){
+  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" data-folder="${escapeHtml(a.driveFolder||'')}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
+}
+
+function loadVisibleAlbumThumbnails(el,albums){
+  const load=async card=>{
+    const i=Number(card.id.replace('album-card-',''));
+    const a=albums[i];
+    if(!a)return;
+    const thumb=await getAlbumThumbnail(a);
+    if(!thumb)return;
+    const box=card.querySelector('.thumb');
+    if(box)box.innerHTML=imageHtml(thumb,a.title);
+  };
+  if(!('IntersectionObserver' in window)){
+    [...el.querySelectorAll('.card')].forEach(load);
+    return;
+  }
+  const observer=new IntersectionObserver(entries=>{
+    entries.forEach(entry=>{
+      if(entry.isIntersecting){
+        observer.unobserve(entry.target);
+        load(entry.target);
+      }
+    });
+  },{rootMargin:'500px 0px'});
+  el.querySelectorAll('.card').forEach(card=>observer.observe(card));
+}
+
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
-  el.innerHTML='<div class="album-empty"><p>Loading galleries...</p></div>';
+
+  const instantAlbums=(D.albums||[]).map(a=>({...a,thumbnail:''}));
+  if(instantAlbums.length){
+    renderAlbumCards(el,instantAlbums);
+  }else{
+    el.innerHTML='<div class="album-empty"><p>Loading galleries...</p></div>';
+  }
+
   const albums=await getAlbums();
   if(!albums.length){
-    el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
+    if(!instantAlbums.length)el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
     return;
   }
-  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
-  albums.forEach(async(a,i)=>{
-    const thumb=await getAlbumThumbnail(a);
-    if(!thumb)return;
-    const box=document.querySelector('#album-card-'+i+' .thumb');
-    if(box)box.innerHTML=imageHtml(thumb,a.title);
-  });
+  renderAlbumCards(el,albums);
+  loadVisibleAlbumThumbnails(el,albums);
 }
 
 function renderMediaFiles(files){
@@ -145,7 +192,7 @@ function renderMediaFiles(files){
 }
 
 async function getCommissionFolders(folderId){
-  const key='rosecollectif-commission-v3-'+folderId;
+  const key='rosecollectif-commission-v4-'+folderId;
   const cached=cacheGet(key);
   if(cached)return cached;
   const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderId)+'&subalbums=1');
