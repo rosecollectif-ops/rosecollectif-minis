@@ -194,6 +194,10 @@ function loadVisibleAlbumThumbnails(el,albums){
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
+
+  // The homepage already contains its optimized static thumbnails.
+  // Leave those in place and use this script for the dynamic features.
+  if(el.dataset.static === 'true')return;
   const albums=staticAlbums();
   if(!albums.length){
     el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
