@@ -7,7 +7,7 @@ window.SITE_DATA = {
     etsy: 'https://rosecollectif.etsy.com',
   },
   contact: {
-    formspreeEndpoint: ''
+    formspreeEndpoint: 'https://formspree.io/f/mjykwngl'
   },
   driveEndpoint: 'https://script.google.com/macros/s/AKfycbzOezvAS4VJKL_rIX0bQygXv8WwIbIqK1ZTbS31WY1zQA68oGxgTibQp4gaPPIydnVG/exec',
   driveParentFolder: '1t7VCt19EBwzLEa_qb8E2Fxa_84d7pjEL',
