@@ -93,6 +93,30 @@ async function getAlbumThumbnail(a){
   }
 }
 
+async function applyDriveBackground(){
+  if(!D.driveEndpoint || !D.driveParentFolder)return;
+  const cached=cacheGet('rosecollectif-background-v1');
+  if(cached){
+    document.body.style.backgroundImage='linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("'+cached+'")';
+    document.body.classList.add('has-drive-background');
+    return;
+  }
+  try{
+    const parent=await fetchJson(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
+    const backgroundFolder=(parent.folders||[]).find(folder=>folder.name.toLowerCase()==='background');
+    if(!backgroundFolder)return;
+    const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(backgroundFolder.id));
+    const image=data.files?.find(file=>file.type?.indexOf('image/')===0);
+    const src=imageSource(image);
+    if(!isUsableImageSource(src))return;
+    cacheSet('rosecollectif-background-v1',src);
+    document.body.style.backgroundImage='linear-gradient(rgba(0,0,0,.55),rgba(0,0,0,.55)),url("'+src+'")';
+    document.body.classList.add('has-drive-background');
+  }catch(error){
+    console.error('Background error:',error);
+  }
+}
+
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
@@ -216,6 +240,7 @@ function setupContact(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   common();
+  applyDriveBackground();
   renderAlbums();
   renderFeatured();
   renderAlbum();
