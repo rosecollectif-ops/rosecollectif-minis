@@ -46,16 +46,20 @@ function imageSource(fileOrValue){
   return fileOrValue.thumbnailData || fileOrValue.thumbnail || '';
 }
 
+function isUsableImageSource(src){
+  return !!src && (src.startsWith('data:image/') || src.startsWith('https://') || src.startsWith('http://'));
+}
+
 function imageHtml(value,alt=''){
   const src=imageSource(value);
-  if(!src)return '<span class="thumb-placeholder">✦</span>';
+  if(!isUsableImageSource(src))return '<span class="thumb-placeholder">✦</span>';
   return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy" decoding="async">';
 }
 
 async function getAlbums(){
   if(albumsPromise)return albumsPromise;
   albumsPromise=(async()=>{
-    const cached=cacheGet('rosecollectif-albums-v2');
+    const cached=cacheGet('rosecollectif-albums-v3');
     if(cached)return cached;
     if(D.driveParentFolder && D.driveEndpoint){
       try{
@@ -66,7 +70,7 @@ async function getAlbums(){
             driveFolder:folder.id,
             thumbnail:folder.thumbnailData || ''
           }));
-          cacheSet('rosecollectif-albums-v2',albums);
+          cacheSet('rosecollectif-albums-v3',albums);
           return albums;
         }
       }catch(error){console.error('Album discovery error:',error);}
@@ -117,7 +121,7 @@ function renderMediaFiles(files){
 }
 
 async function getCommissionFolders(folderId){
-  const key='rosecollectif-commission-v2-'+folderId;
+  const key='rosecollectif-commission-v3-'+folderId;
   const cached=cacheGet(key);
   if(cached)return cached;
   const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderId)+'&subalbums=1');
