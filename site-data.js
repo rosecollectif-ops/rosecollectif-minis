@@ -5,7 +5,6 @@ window.SITE_DATA = {
   socials: {
     instagram: 'https://instagram.com/rosecollectifminis',
     etsy: '#',
-    facebook: '#'
   },
   contact: {
     formspreeEndpoint: ''
