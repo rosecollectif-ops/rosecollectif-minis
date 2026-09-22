@@ -4,16 +4,58 @@ document.documentElement.style.setProperty('--text',D.appearance.text);
 document.documentElement.style.setProperty('--accent',D.appearance.accent);
 document.documentElement.style.setProperty('--card',D.appearance.card);
 
+let albumsPromise=null;
+
 function common(){
   document.querySelectorAll('[data-site-name]').forEach(e=>e.textContent=D.siteName);
   document.querySelectorAll('[data-social=instagram]').forEach(e=>e.href=D.socials.instagram);
   document.querySelectorAll('[data-social=etsy]').forEach(e=>e.href=D.socials.etsy);
   document.querySelectorAll('[data-social=facebook]').forEach(e=>e.href=D.socials.facebook);
+  const tagline=document.querySelector('#tagline');
+  if(tagline) tagline.textContent=D.tagline;
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g,char=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#039;'
+  }[char]));
+}
+
+async function getAlbums(){
+  if(albumsPromise)return albumsPromise;
+
+  albumsPromise=(async()=>{
+    if(D.driveParentFolder && D.driveEndpoint){
+      try{
+        const response=await fetch(D.driveEndpoint+'?parent='+encodeURIComponent(D.driveParentFolder));
+        const data=await response.json();
+
+        if(!data.error && Array.isArray(data.folders)){
+          return data.folders.map(folder=>({
+            title:folder.name,
+            driveFolder:folder.id,
+            thumbnail:folder.thumbnail || ''
+          }));
+        }
+      }catch(error){
+        console.error('Album discovery error:',error);
+      }
+    }
+
+    return D.albums || [];
+  })();
+
+  return albumsPromise;
 }
 
 async function getAlbumThumbnail(a){
   if(a.thumbnail) return 'https://drive.google.com/thumbnail?id='+encodeURIComponent(a.thumbnail)+'&sz=w1200';
-  if(!a.driveFolder || !D.driveEndpoint) return '';
+  if(!a.driveFolder || !D.driveEndpoint)return '';
+
   try{
     const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
     const data=await response.json();
@@ -28,13 +70,21 @@ async function getAlbumThumbnail(a){
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
-  el.innerHTML=D.albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${a.title}</h3><p class="muted">Open album</p></div></a>`).join('');
 
-  D.albums.forEach(async(a,i)=>{
+  const albums=await getAlbums();
+
+  if(!albums.length){
+    el.innerHTML='<div class="album-empty"><h3>No albums found</h3><p>Add album folders to the Google Drive gallery folder.</p></div>';
+    return;
+  }
+
+  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3><p class="muted">Open album</p></div></a>`).join('');
+
+  albums.forEach(async(a,i)=>{
     const thumb=await getAlbumThumbnail(a);
     if(!thumb)return;
     const box=document.querySelector('#album-card-'+i+' .thumb');
-    if(box) box.innerHTML=`<img src="${thumb}" alt="" loading="lazy">`;
+    if(box)box.innerHTML=`<img src="${thumb}" alt="" loading="lazy">`;
   });
 }
 
@@ -42,8 +92,15 @@ async function renderAlbum(){
   const el=document.querySelector('#album-view');
   if(!el)return;
 
-  const name=new URLSearchParams(location.search).get('album')||D.albums[0].title;
-  const a=D.albums.find(x=>x.title===name)||D.albums[0];
+  const albums=await getAlbums();
+  const name=new URLSearchParams(location.search).get('album')||albums[0]?.title;
+  const a=albums.find(x=>x.title===name)||albums[0];
+
+  if(!a){
+    document.querySelector('#album-title').textContent='Album not found';
+    el.innerHTML='<div class="album-empty"><h3>Album not found</h3><p>Go back to the galleries and choose an album.</p></div>';
+    return;
+  }
 
   document.querySelector('#album-title').textContent=a.title;
 
@@ -58,7 +115,7 @@ async function renderAlbum(){
     const response=await fetch(D.driveEndpoint+'?folder='+encodeURIComponent(a.driveFolder));
     const data=await response.json();
 
-    if(data.error) throw new Error(data.error);
+    if(data.error)throw new Error(data.error);
 
     if(!data.files || !data.files.length){
       el.innerHTML='<div class="album-empty"><h3>No web photos in this folder</h3><p>Add JPG, PNG or WebP files directly to the main Google Drive folder. Subfolders are ignored.</p></div>';
