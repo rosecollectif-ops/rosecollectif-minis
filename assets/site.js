@@ -142,7 +142,7 @@ async function applyDriveBackground(){
 }
 
 function renderAlbumCards(el,albums){
-  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" data-folder="${escapeHtml(a.driveFolder||'')}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
+  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" data-folder="${escapeHtml(a.driveFolder||'')}" href="./album.html?album=${encodeURIComponent(a.title)}"><div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
 }
 
 function loadVisibleAlbumThumbnails(el,albums){
