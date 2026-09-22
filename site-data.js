@@ -4,7 +4,7 @@ window.SITE_DATA = {
   intro: 'A gallery of painted miniatures, projects and commissions.',
   socials: {
     instagram: 'https://instagram.com/rosecollectifminis',
-    etsy: '#',
+    etsy: 'https://rosecollectif.etsy.com',
   },
   contact: {
     formspreeEndpoint: ''
