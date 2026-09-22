@@ -289,13 +289,36 @@ async function renderAlbum(){
     }
 
     const folderToLoad=sub||a.driveFolder;
-    const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderToLoad));
-    if(data.error)throw new Error(data.error);
-    if(!data.files||!data.files.length){
+
+    // Load album photos in small batches so large galleries do not
+    // produce an oversized Apps Script response.
+    const allFiles=[];
+    let start=0;
+    const pageSize=40;
+
+    while(true){
+      const data=await fetchJson(
+        D.driveEndpoint+
+        '?folder='+encodeURIComponent(folderToLoad)+
+        '&start='+start+
+        '&limit='+pageSize
+      );
+
+      if(data.error)throw new Error(data.error);
+
+      const page=Array.isArray(data.files)?data.files:[];
+      allFiles.push(...page);
+
+      if(!data.hasMore || page.length===0)break;
+      start+=page.length;
+    }
+
+    if(!allFiles.length){
       el.innerHTML='<div class="album-empty"><h3>No photos in this gallery yet</h3></div>';
       return;
     }
-    el.innerHTML='<div class="media-grid">'+renderMediaFiles(data.files)+'</div>';
+
+    el.innerHTML='<div class="media-grid">'+renderMediaFiles(allFiles)+'</div>';
   }catch(error){
     console.error(error);
     el.innerHTML='<div class="album-empty"><h3>We could not load this gallery</h3><p>Please try refreshing the page.</p></div>';
