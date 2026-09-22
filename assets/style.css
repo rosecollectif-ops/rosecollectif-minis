@@ -81,3 +81,22 @@ button{border:0;background:#222;color:#fff;padding:13px 22px;border-radius:2px;f
  .card-body h3{font-size:.95rem}
  .card-body:after{font-size:.55rem}
 }
+
+/* On-site photo viewer */
+.media-card{border:0;padding:0;text-align:left;cursor:pointer;font:inherit;color:inherit}
+.rose-lightbox{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.96);display:none;align-items:center;justify-content:center;padding:50px 70px}
+.rose-lightbox.open{display:flex}
+.rose-lightbox-content{max-width:92vw;max-height:90vh;display:flex;align-items:center;justify-content:center}
+.rose-lightbox-content img,.rose-lightbox-content video{display:block;max-width:92vw;max-height:90vh;width:auto;height:auto;object-fit:contain}
+.rose-lightbox-close,.rose-lightbox-prev,.rose-lightbox-next{position:absolute;z-index:2;border:0;background:rgba(255,255,255,.9);color:#111;width:42px;height:42px;border-radius:50%;padding:0;font-size:28px;line-height:42px;text-align:center}
+.rose-lightbox-close{top:18px;right:18px;font-size:30px}
+.rose-lightbox-prev{left:18px;top:50%;transform:translateY(-50%)}
+.rose-lightbox-next{right:18px;top:50%;transform:translateY(-50%)}
+.rose-lightbox-close:hover,.rose-lightbox-prev:hover,.rose-lightbox-next:hover{background:#fff}
+@media(max-width:650px){
+ .rose-lightbox{padding:45px 45px}
+ .rose-lightbox-content img,.rose-lightbox-content video{max-width:100%;max-height:82vh}
+ .rose-lightbox-prev{left:7px}
+ .rose-lightbox-next{right:7px}
+ .rose-lightbox-close{top:8px;right:8px}
+}
