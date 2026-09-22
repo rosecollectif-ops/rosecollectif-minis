@@ -19,7 +19,7 @@ a{color:inherit;text-decoration:none}
 .wix-banner{width:100%;overflow:hidden;background:#000}
 .wix-banner img{display:block;width:100%;height:auto;max-height:none}
 .main-menu{width:100%}
-.featured-wrap{width:100%;margin:0;padding:18px 0 18px}
+.featured-wrap{width:100%;max-width:1600px;margin:0 auto;padding:0}
 .wix-heading{margin-bottom:18px}
 .section-heading{text-align:center;max-width:760px;margin:0 auto 34px}
 .section-title{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:clamp(2rem,4vw,3.2rem);letter-spacing:-.02em;margin:0 0 8px}
@@ -71,7 +71,8 @@ button{border:0;background:#222;color:#fff;padding:13px 22px;border-radius:2px;f
 .main-menu{padding:13px 16px;flex-wrap:wrap}
  .navlinks{gap:15px;flex-wrap:wrap}
  .navlinks{gap:15px;flex-wrap:wrap}
- .featured-wrap{padding-top:25px}
+ .featured-wrap{padding:0;max-width:100%}
+ .featured-slider{aspect-ratio:16/7}
  .featured-arrow{width:34px;height:34px;font-size:19px}
  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
  .media-grid{grid-template-columns:1fr}
