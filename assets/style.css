@@ -19,10 +19,10 @@ nav{max-width:1264px;margin:auto;padding:14px 22px;display:flex;align-items:cent
 .navlinks a:hover:after{right:0}
 .wix-banner{width:100%;overflow:hidden;background:#000}
 .wix-banner img{display:block;width:100%;height:auto;max-height:none}
-.featured-wrap{max-width:1264px;margin:0 auto;padding:18px 0 18px}
+.featured-wrap{width:100%;margin:0;padding:18px 0 18px}
 .wix-heading{margin-bottom:18px}
 .section-heading{text-align:center;max-width:760px;margin:0 auto 34px}
-.section-title{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:clamp(2rem,4vw,3.2rem);font-weight:400;letter-spacing:-.02em;margin:0 0 8px}
+.section-title{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:clamp(2rem,4vw,3.2rem);letter-spacing:-.02em;margin:0 0 8px}
 .muted{opacity:.68}
 .featured-slider{position:relative;width:100%;aspect-ratio:1264/340;overflow:hidden;background:#111}
 .featured-track{display:flex;width:100%;height:100%;transition:transform .65s ease}
@@ -37,7 +37,7 @@ nav{max-width:1264px;margin:auto;padding:14px 22px;display:flex;align-items:cent
 .featured-dot{width:8px;height:8px;border-radius:50%;border:1px solid #fff;background:rgba(255,255,255,.45);padding:0;cursor:pointer}
 .featured-dot.active{background:#fff}
 .featured-empty{height:100%;display:grid;place-items:center;text-align:center;padding:30px;color:#aaa}
-.featured-empty strong{display:block;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.35rem;font-weight:400;margin-bottom:5px}
+.featured-empty strong{display:block;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.35rem;margin-bottom:5px}
 .wrap{max-width:1264px;margin:auto;padding:58px 22px}
 .wix-gallery-section{padding-top:38px}
 .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:22px}
@@ -54,7 +54,7 @@ nav{max-width:1264px;margin:auto;padding:14px 22px;display:flex;align-items:cent
 .media-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
 .video-placeholder{aspect-ratio:4/3;display:grid;place-items:center;background:#111;font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.1rem}
 .album-empty{border:1px dashed rgba(255,255,255,.25);padding:45px;text-align:center;background:#111}
-.album-empty h3{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.5rem;font-weight:400}
+.album-empty h3{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.5rem}
 .page-top{padding-bottom:20px}
 .back-link{font-size:.72rem;letter-spacing:.11em;text-transform:uppercase;opacity:.65}
 .back-link:hover{opacity:1}
