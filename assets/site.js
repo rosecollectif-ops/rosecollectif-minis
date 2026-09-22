@@ -207,12 +207,51 @@ async function renderAlbums(){
 }
 
 function renderMediaFiles(files){
-  return files.map(file=>{
+  return files.map((file,i)=>{
     if(file.type.indexOf('video/')===0){
-      return `<a class="media-card video-card" href="${escapeHtml(file.url)}" target="_blank" rel="noopener"><div class="video-placeholder">Video</div></a>`;
+      return `<button class="media-card video-card" type="button" data-lightbox-index="${i}" aria-label="Open video"><div class="video-placeholder">Video</div></button>`;
     }
-    return `<a class="media-card" href="${escapeHtml(file.url)}" target="_blank" rel="noopener">${imageHtml(file,file.name||'')}</a>`;
+    return `<button class="media-card" type="button" data-lightbox-index="${i}" aria-label="Open ${escapeHtml(file.name||'image')}">${imageHtml(file,file.name||'')}</button>`;
   }).join('');
+}
+
+function setupLightbox(files){
+  let box=document.querySelector('#rose-lightbox');
+  if(!box){
+    box=document.createElement('div');
+    box.id='rose-lightbox';
+    box.className='rose-lightbox';
+    box.innerHTML='<button class="rose-lightbox-close" type="button" aria-label="Close">×</button><button class="rose-lightbox-prev" type="button" aria-label="Previous">‹</button><div class="rose-lightbox-content"></div><button class="rose-lightbox-next" type="button" aria-label="Next">›</button>';
+    document.body.appendChild(box);
+  }
+  const content=box.querySelector('.rose-lightbox-content');
+  let index=0;
+  const show=n=>{
+    index=(n+files.length)%files.length;
+    const file=files[index];
+    if(file.type.indexOf('video/')===0){
+      content.innerHTML='<video controls autoplay playsinline src="'+escapeHtml(file.url)+'"></video>';
+    }else{
+      const src=imageSource(file);
+      content.innerHTML='<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(file.name||'')+'">';
+    }
+    box.classList.add('open');
+  };
+  const close=()=>{box.classList.remove('open');content.innerHTML='';};
+  box.querySelector('.rose-lightbox-close').onclick=close;
+  box.querySelector('.rose-lightbox-prev').onclick=()=>show(index-1);
+  box.querySelector('.rose-lightbox-next').onclick=()=>show(index+1);
+  box.onclick=e=>{if(e.target===box)close();};
+  document.onkeydown=e=>{
+    if(!box.classList.contains('open'))return;
+    if(e.key==='Escape')close();
+    if(e.key==='ArrowLeft')show(index-1);
+    if(e.key==='ArrowRight')show(index+1);
+  };
+  box.querySelector('.rose-lightbox-content').onclick=e=>e.stopPropagation();
+  document.querySelectorAll('[data-lightbox-index]').forEach(el=>{
+    el.onclick=()=>show(Number(el.dataset.lightboxIndex));
+  });
 }
 
 async function getCommissionFolders(folderId){
@@ -237,7 +276,7 @@ async function renderFeatured(){
       return;
     }
 
-    el.innerHTML='<div class="featured-track">'+files.map((file,i)=>`<a class="featured-slide" href="${escapeHtml(file.url)}" target="_blank" rel="noopener">${imageHtml(file,file.name||'')}</a>`).join('')+'</div><button class="featured-arrow prev" type="button" aria-label="Previous">‹</button><button class="featured-arrow next" type="button" aria-label="Next">›</button><div class="featured-dots">'+files.map((_,i)=>`<button class="featured-dot${i===0?' active':''}" type="button" aria-label="Slide ${i+1}"></button>`).join('')+'</div>';
+    el.innerHTML='<div class="featured-track">'+files.map((file,i)=>`<div class="featured-slide">${imageHtml(file,file.name||'')}</div>`).join('')+'</div><button class="featured-arrow prev" type="button" aria-label="Previous">‹</button><button class="featured-arrow next" type="button" aria-label="Next">›</button><div class="featured-dots">'+files.map((_,i)=>`<button class="featured-dot${i===0?' active':''}" type="button" aria-label="Slide ${i+1}"></button>`).join('')+'</div>';
 
     let index=0;
     const track=el.querySelector('.featured-track');
@@ -323,6 +362,7 @@ async function renderAlbum(){
     }
 
     el.innerHTML='<div class="media-grid">'+renderMediaFiles(allFiles)+'</div>';
+    setupLightbox(allFiles);
   }catch(error){
     console.error(error);
     el.innerHTML='<div class="album-empty"><h3>We could not load this gallery</h3><p>Please try refreshing the page.</p></div>';
