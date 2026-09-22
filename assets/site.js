@@ -92,6 +92,27 @@ async function resolveAlbum(name){
   const albums=staticAlbums();
   const local=albums.find(x=>x.title===name);
   if(local && local.driveFolder)return local;
+
+  // Lightweight lookup avoids downloading all album thumbnails just to find one folder.
+  if(D.driveParentFolder && D.driveEndpoint){
+    try{
+      const data=await fetchJson(
+        D.driveEndpoint+
+        '?lookup='+encodeURIComponent(name)+
+        '&parent='+encodeURIComponent(D.driveParentFolder)
+      );
+      if(data && data.id){
+        return {
+          title:data.name||name,
+          driveFolder:data.id,
+          thumbnail:(window.ROSE_THUMBS&&window.ROSE_THUMBS[name])||''
+        };
+      }
+    }catch(error){
+      console.warn('Lightweight folder lookup unavailable, trying parent list.',error);
+    }
+  }
+
   const folders=await getParentFolders();
   const match=folders.find(x=>x.name===name);
   if(match){
