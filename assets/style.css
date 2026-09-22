@@ -10,15 +10,15 @@
 html{scroll-behavior:smooth}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#000;color:#fff;line-height:1.5}
 a{color:inherit;text-decoration:none}
-header{background:#000!important;border-bottom:1px solid var(--line)}
-nav{max-width:1264px;margin:auto;padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:28px}
-.brand{font-family:Helvetica,Arial,sans-serif;font-weight:700;font-size:1.05rem;letter-spacing:.13em;text-transform:uppercase;white-space:nowrap}
-.navlinks{display:flex;gap:24px;align-items:center}
+.main-menu{max-width:1264px;margin:0 auto;padding:14px 22px;display:flex;justify-content:center;align-items:center;background:#000;gap:28px}
+.brand{display:none}
+.navlinks{display:flex;justify-content:center;gap:24px;align-items:center}
 .navlinks a{font-size:.76rem;letter-spacing:.11em;text-transform:uppercase;position:relative;padding:4px 0}
 .navlinks a:after{content:"";position:absolute;left:0;right:100%;bottom:0;height:1px;background:var(--accent);transition:.2s}
 .navlinks a:hover:after{right:0}
 .wix-banner{width:100%;overflow:hidden;background:#000}
 .wix-banner img{display:block;width:100%;height:auto;max-height:none}
+.main-menu{width:100%}
 .featured-wrap{width:100%;margin:0;padding:18px 0 18px}
 .wix-heading{margin-bottom:18px}
 .section-heading{text-align:center;max-width:760px;margin:0 auto 34px}
@@ -58,6 +58,7 @@ nav{max-width:1264px;margin:auto;padding:14px 22px;display:flex;align-items:cent
 .page-top{padding-bottom:20px}
 .back-link{font-size:.72rem;letter-spacing:.11em;text-transform:uppercase;opacity:.65}
 .back-link:hover{opacity:1}
+header{display:none}
 footer{background:#000!important;padding:42px 22px;text-align:center;border-top:1px solid var(--line);margin-top:10px;font-size:.78rem;letter-spacing:.04em;background:#000}
 .socials{display:flex;justify-content:center;gap:20px;margin-top:14px}
 .socials a{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;opacity:.7}
@@ -67,7 +68,8 @@ textarea{min-height:170px}
 button{border:0;background:#222;color:#fff;padding:13px 22px;border-radius:2px;font:inherit;cursor:pointer;letter-spacing:.1em;text-transform:uppercase;font-size:.74rem}
 @media(max-width:950px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){
- nav{padding:13px 16px;align-items:flex-start;flex-direction:column;gap:10px}
+.main-menu{padding:13px 16px;flex-wrap:wrap}
+ .navlinks{gap:15px;flex-wrap:wrap}
  .navlinks{gap:15px;flex-wrap:wrap}
  .featured-wrap{padding-top:25px}
  .featured-arrow{width:34px;height:34px;font-size:19px}
