@@ -12,7 +12,6 @@ function common(){
   document.querySelectorAll('[data-site-name]').forEach(e=>e.textContent=D.siteName);
   document.querySelectorAll('[data-social=instagram]').forEach(e=>e.href=D.socials.instagram);
   document.querySelectorAll('[data-social=etsy]').forEach(e=>e.href=D.socials.etsy);
-  document.querySelectorAll('[data-social=facebook]').forEach(e=>e.href=D.socials.facebook);
 }
 
 function escapeHtml(value){
@@ -57,6 +56,13 @@ function imageHtml(value,alt=''){
   return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" loading="lazy" decoding="async">';
 }
 
+function staticAlbums(){
+  return (D.albums||[]).map(a=>({
+    ...a,
+    thumbnail:(window.ROSE_THUMBS&&window.ROSE_THUMBS[a.title])||a.thumbnail||''
+  }));
+}
+
 async function getParentFolders(){
   if(parentFoldersPromise)return parentFoldersPromise;
   parentFoldersPromise=(async()=>{
@@ -78,22 +84,24 @@ async function getParentFolders(){
 
 async function getAlbums(){
   if(albumsPromise)return albumsPromise;
-  albumsPromise=(async()=>{
-    const cached=cacheGet('rosecollectif-albums-v4');
-    if(cached)return cached;
-    const folders=await getParentFolders();
-    if(folders.length){
-      const albums=folders.map(folder=>({
-        title:folder.name,
-        driveFolder:folder.id,
-        thumbnail:folder.thumbnailData || ''
-      }));
-      cacheSet('rosecollectif-albums-v4',albums);
-      return albums;
-    }
-    return D.albums||[];
-  })();
+  albumsPromise=Promise.resolve(staticAlbums());
   return albumsPromise;
+}
+
+async function resolveAlbum(name){
+  const albums=staticAlbums();
+  const local=albums.find(x=>x.title===name);
+  if(local && local.driveFolder)return local;
+  const folders=await getParentFolders();
+  const match=folders.find(x=>x.name===name);
+  if(match){
+    return {
+      title:match.name,
+      driveFolder:match.id,
+      thumbnail:(window.ROSE_THUMBS&&window.ROSE_THUMBS[match.name])||''
+    };
+  }
+  return local||null;
 }
 
 async function getAlbumThumbnail(a){
@@ -165,21 +173,12 @@ function loadVisibleAlbumThumbnails(el,albums){
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
-
-  const instantAlbums=(D.albums||[]).map(a=>({...a,thumbnail:''}));
-  if(instantAlbums.length){
-    renderAlbumCards(el,instantAlbums);
-  }else{
-    el.innerHTML='<div class="album-empty"><p>Loading galleries...</p></div>';
-  }
-
-  const albums=await getAlbums();
+  const albums=staticAlbums();
   if(!albums.length){
-    if(!instantAlbums.length)el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
+    el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
     return;
   }
-  renderAlbumCards(el,albums);
-  loadVisibleAlbumThumbnails(el,albums);
+  el.innerHTML=albums.map((a,i)=>`<a class="card" id="album-card-${i}" href="album.html?album=${encodeURIComponent(a.title)}"><div class="thumb">${a.thumbnail?imageHtml(a.thumbnail,a.title):'<span class="thumb-placeholder">✦</span>'}</div><div class="card-body"><h3>${escapeHtml(a.title)}</h3></div></a>`).join('');
 }
 
 function renderMediaFiles(files){
@@ -240,22 +239,25 @@ async function renderFeatured(){
 async function renderAlbum(){
   const el=document.querySelector('#album-view');
   if(!el)return;
-  const albums=await getAlbums();
   const params=new URLSearchParams(location.search);
-  const name=params.get('album')||albums[0]?.title;
+  const name=params.get('album')||(D.albums||[])[0]?.title;
   const sub=params.get('sub');
-  const a=albums.find(x=>x.title===name)||albums[0];
+  el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
+
+  const a=await resolveAlbum(name);
   if(!a){
     document.querySelector('#album-title').textContent='Gallery not found';
     el.innerHTML='<div class="album-empty"><h3>Gallery not found</h3></div>';
     return;
   }
+
   document.querySelector('#album-title').textContent=a.title;
-  if(!a.driveFolder){
+
+  if(!a.driveFolder || !D.driveEndpoint){
     el.innerHTML='<div class="album-empty"><h3>No photos in this gallery yet</h3></div>';
     return;
   }
-  el.innerHTML='<div class="album-empty"><p>Loading photos...</p></div>';
+
   try{
     if(a.title==='Commissions' && !sub){
       const folders=await getCommissionFolders(a.driveFolder);
@@ -264,6 +266,7 @@ async function renderAlbum(){
         return;
       }
     }
+
     const folderToLoad=sub||a.driveFolder;
     const data=await fetchJson(D.driveEndpoint+'?folder='+encodeURIComponent(folderToLoad));
     if(data.error)throw new Error(data.error);
