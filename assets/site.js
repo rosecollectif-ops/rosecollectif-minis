@@ -195,9 +195,34 @@ async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
 
-  // The homepage already contains its optimized static thumbnails.
-  // Leave those in place and use this script for the dynamic features.
-  if(el.dataset.static === 'true')return;
+  // The homepage contains optimized static thumbnails for the existing galleries.
+  // Keep those in place, but also discover any new Drive folders and add them.
+  if(el.dataset.static === 'true'){
+    try{
+      const folders=await getParentFolders();
+      const existing=[...el.querySelectorAll('.card h3')].map(x=>x.textContent.trim().toLowerCase());
+      const newFolders=folders.filter(folder=>{
+        const name=folder.name.trim().toLowerCase();
+        return !existing.includes(name);
+      });
+      newFolders.forEach((folder,i)=>{
+        const card=document.createElement('a');
+        card.className='card';
+        card.href='album.html?album='+encodeURIComponent(folder.name);
+        card.innerHTML='<div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>'+escapeHtml(folder.name)+'</h3></div>';
+        el.appendChild(card);
+        getAlbumThumbnail({driveFolder:folder.id}).then(thumb=>{
+          if(thumb){
+            const box=card.querySelector('.thumb');
+            if(box)box.innerHTML=imageHtml(thumb,folder.name);
+          }
+        });
+      });
+    }catch(error){
+      console.error('New Drive gallery discovery error:',error);
+    }
+    return;
+  }
   const albums=staticAlbums();
   if(!albums.length){
     el.innerHTML='<div class="album-empty"><h3>No galleries found</h3></div>';
