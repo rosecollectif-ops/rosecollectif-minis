@@ -56,6 +56,49 @@ function imageHtml(value,alt=''){
   return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(alt)+'" decoding="async">';
 }
 
+function thumbnailSlug(value){
+  return String(value||'').trim().toLowerCase()
+    .replace(/&/g,'and')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+
+function githubThumbnailCandidates(title,subfolder=''){
+  const base='https://raw.githubusercontent.com/rosecollectif-ops/rosecollectif-minis/main/assets/thumbnails/';
+  const folder=subfolder ? thumbnailSlug(subfolder)+'/' : '';
+  const slug=thumbnailSlug(title);
+  return ['webp','jpg','jpeg','png'].map(ext=>base+folder+slug+'.'+ext);
+}
+
+function loadImage(url){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>resolve(url);
+    img.onerror=()=>resolve('');
+    img.src=url;
+  });
+}
+
+async function getGithubThumbnail(title,subfolder=''){
+  const key='rosecollectif-github-thumb-v1-'+(subfolder?thumbnailSlug(subfolder)+'-':'')+thumbnailSlug(title);
+  const cached=cacheGet(key);
+  if(cached)return cached;
+  for(const url of githubThumbnailCandidates(title,subfolder)){
+    const found=await loadImage(url);
+    if(found){
+      cacheSet(key,found);
+      return found;
+    }
+  }
+  return '';
+}
+
+async function getBestAlbumThumbnail(a){
+  const local=await getGithubThumbnail(a.title);
+  if(local)return local;
+  return a.thumbnail||await getAlbumThumbnail(a);
+}
+
 function staticAlbums(){
   return (D.albums||[]).map(a=>({
     ...a,
@@ -191,6 +234,19 @@ function loadVisibleAlbumThumbnails(el,albums){
   el.querySelectorAll('.card').forEach(card=>observer.observe(card));
 }
 
+async async function upgradeStaticThumbnails(el){
+  const cards=[...el.querySelectorAll('.card')];
+  await Promise.all(cards.map(async card=>{
+    const title=card.querySelector('h3')?.textContent?.trim();
+    if(!title)return;
+    const src=await getGithubThumbnail(title);
+    if(src){
+      const box=card.querySelector('.thumb');
+      if(box)box.innerHTML=imageHtml(src,title);
+    }
+  }));
+}
+
 async function renderAlbums(){
   const el=document.querySelector('#album-grid');
   if(!el)return;
@@ -211,7 +267,7 @@ async function renderAlbums(){
         card.href='album.html?album='+encodeURIComponent(folder.name);
         card.innerHTML='<div class="thumb"><span class="thumb-placeholder">✦</span></div><div class="card-body"><h3>'+escapeHtml(folder.name)+'</h3></div>';
         el.appendChild(card);
-        getAlbumThumbnail({driveFolder:folder.id}).then(thumb=>{
+        getGithubThumbnail(folder.name).then(thumb=>thumb||getAlbumThumbnail({driveFolder:folder.id})).then(thumb=>{
           if(thumb){
             const box=card.querySelector('.thumb');
             if(box)box.innerHTML=imageHtml(thumb,folder.name);
@@ -221,6 +277,7 @@ async function renderAlbums(){
     }catch(error){
       console.error('New Drive gallery discovery error:',error);
     }
+    upgradeStaticThumbnails(el);
     return;
   }
   const albums=staticAlbums();
@@ -351,7 +408,19 @@ async function renderAlbum(){
     if(a.title==='Commissions' && !sub){
       const folders=await getCommissionFolders(a.driveFolder);
       if(folders.length){
-        el.innerHTML='<div class="grid">'+folders.map(folder=>{const thumb=folder.thumbnail||folder.thumbnailData||'';return `<a class="card" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}"><div class="thumb">${thumb?imageHtml(thumb,folder.name):'<span class="thumb-placeholder">✦</span>'}</div><div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div></a>`;}).join('')+'</div>';
+        const cards=folders.map(folder=>{
+          const driveThumb=folder.thumbnail||folder.thumbnailData||'';
+          return `<a class="card commission-card" data-commission-name="${escapeHtml(folder.name)}" href="album.html?album=${encodeURIComponent(a.title)}&sub=${encodeURIComponent(folder.id)}"><div class="thumb">${driveThumb?imageHtml(driveThumb,folder.name):'<span class="thumb-placeholder">✦</span>'}</div><div class="card-body"><h3>${escapeHtml(folder.name)}</h3></div></a>`;
+        }).join('');
+        el.innerHTML='<div class="grid">'+cards+'</div>';
+        folders.forEach(folder=>{
+          getGithubThumbnail(folder.name,'commissions').then(src=>{
+            if(!src)return;
+            const card=[...el.querySelectorAll('.commission-card')].find(x=>x.dataset.commissionName===folder.name);
+            const box=card?.querySelector('.thumb');
+            if(box)box.innerHTML=imageHtml(src,folder.name);
+          });
+        });
         return;
       }
     }
