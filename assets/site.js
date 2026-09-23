@@ -234,7 +234,7 @@ function loadVisibleAlbumThumbnails(el,albums){
   el.querySelectorAll('.card').forEach(card=>observer.observe(card));
 }
 
-async async function upgradeStaticThumbnails(el){
+async function upgradeStaticThumbnails(el){
   const cards=[...el.querySelectorAll('.card')];
   await Promise.all(cards.map(async card=>{
     const title=card.querySelector('h3')?.textContent?.trim();
