@@ -1,0 +1,36 @@
+name: One-time cat hunt fix
+on:
+  push:
+    paths:
+      - '.github/workflows/one-time-cat-hunt-fix.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix combined cat and cup cat
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('hidden-cat-hunt/index.html')
+          s=p.read_text()
+          old31='M 1510,1026 1505,1027 1504,1030 1511,1033 1514,1039 1509,1053 1510,1065 1517,1073 1516,1088 1513,1091 1509,1111 1510,1113 1513,1113 1519,1107 1518,1105 1528,1092 1531,1091 1536,1094 1541,1092 1551,1092 1551,1059 1549,1058 1543,1061 1536,1061 1534,1063 1521,1061 1515,1051 1520,1042 1520,1033 Z'
+          new31='M 449,761 444,766 432,765 438,777 447,777 451,768 Z'
+          old30='M 1653,1022 1647,1025 1646,1030 1642,1032 1625,1029 1617,1019 1614,1019 1611,1025 1611,1037 1605,1053 1596,1056 1596,1099 1604,1104 1606,1109 1611,1114 1621,1114 1626,1110 1626,1102 1628,1093 1633,1084 1632,1082 1650,1066 1653,1060 1652,1059 1655,1052 1655,1049 1653,1048 1653,1040 1656,1031 1655,1024 Z'
+          combined30=old30+' '+old31
+          s=s.replace(f'<mask id="m30"><rect width="1754" height="1240" fill="black"/><path d="{old30}" fill="white"/></mask>', f'<mask id="m30"><rect width="1754" height="1240" fill="black"/><path d="{old30}" fill="white"/><path d="{old31}" fill="white"/></mask>')
+          s=s.replace(f'<mask id="m31"><rect width="1754" height="1240" fill="black"/><path d="{old31}" fill="white"/></mask>', f'<mask id="m31"><rect width="1754" height="1240" fill="black"/><path d="{new31}" fill="white"/></mask>')
+          s=s.replace(f'<path class="cat-target" data-cat="30" d="{old30}"', f'<path class="cat-target" data-cat="30" d="{combined30}"')
+          s=s.replace(f'<path class="cat-target" data-cat="31" d="{old31}"', f'<path class="cat-target" data-cat="31" d="{new31}"')
+          p.write_text(s)
+          PY
+      - name: Commit and remove this workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add hidden-cat-hunt/index.html .github/workflows/one-time-cat-hunt-fix.yml
+          git rm .github/workflows/one-time-cat-hunt-fix.yml
+          git commit -m 'Fix cat hunt combined cat and cup cat' || exit 0
+          git push
