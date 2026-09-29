@@ -1,0 +1,68 @@
+name: Rebuild hidden cat game
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/cat-hunt-original.jpg'
+      - 'assets/cat-hunt-purple.jpg'
+      - '.github/workflows/rebuild-hidden-cat-game.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install image tools
+        run: python -m pip install --disable-pip-version-check pillow opencv-python-headless
+      - name: Build the game from the purple reference image
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import cv2
+          import numpy as np
+          purple=cv2.imread('assets/cat-hunt-purple.jpg')
+          orig=cv2.imread('assets/cat-hunt-original.jpg')
+          if purple is None or orig is None: raise SystemExit('Cat images missing from assets/.')
+          if purple.shape[:2] != orig.shape[:2]: raise SystemExit('Cat images have different dimensions.')
+          h,w=orig.shape[:2]
+          b,g,r=cv2.split(purple)
+          pm=((r>70)&(b>70)&(g<100)&(b>g*1.5)).astype(np.uint8)*255
+          grouped=cv2.dilate(pm,np.ones((33,33),np.uint8),iterations=1)
+          n,labels,stats,_=cv2.connectedComponentsWithStats(grouped,8)
+          ids=[i for i in range(1,n) if stats[i,cv2.CC_STAT_AREA]>200]
+          if len(ids)!=34: raise SystemExit(f'Expected 34 cats, found {len(ids)} image groups.')
+          ids.sort(key=lambda i:(stats[i,cv2.CC_STAT_TOP],stats[i,cv2.CC_STAT_LEFT]))
+          def path_for(binary,eps):
+              cs,_=cv2.findContours(binary,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE); out=[]
+              for c in cs:
+                  if cv2.contourArea(c)<4: continue
+                  c=cv2.approxPolyDP(c,eps,True)
+                  if len(c)>=3:
+                      p=c[:,0,:]; out.append('M '+' '.join(f'{int(x)},{int(y)}' for x,y in p)+' Z')
+              return ' '.join(out)
+          exact=[]; targets=[]
+          for i in ids:
+              exact.append(path_for(((labels==i)&(pm>0)).astype(np.uint8)*255,1.2))
+              targets.append(path_for((labels==i).astype(np.uint8)*255,1.8))
+          defs=''.join(f'<clipPath id="cat{i}"><path d="{p}"/></clipPath>' for i,p in enumerate(exact,1))
+          overlays=''.join(f'<image class="purple-cat" id="purple{i}" href="../assets/cat-hunt-purple.jpg" x="0" y="0" width="{w}" height="{h}" preserveAspectRatio="none" clip-path="url(#cat{i})"/>' for i in range(1,35))
+          clickpaths=''.join(f'<path class="cat-target" data-cat="{i}" d="{p}" tabindex="0" role="button" aria-label="Find cat {i}"/>' for i,p in enumerate(targets,1))
+          html=f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive"><title>Find All 34 Cats</title><style>:root{{--purple:#8b3fd1}}*{{box-sizing:border-box}}html,body{{margin:0;background:#080808;color:#fff;font-family:Helvetica,Arial,sans-serif}}main{{width:min(100%,1400px);margin:auto;padding:14px 8px 28px}}.game{{width:100%;line-height:0}}svg{{display:block;width:100%;height:auto;touch-action:manipulation;user-select:none}}.purple-cat{{opacity:0;transition:opacity .16s ease;pointer-events:none}}.purple-cat.found{{opacity:1}}.cat-target{{fill:transparent;stroke:transparent;cursor:pointer;pointer-events:all}}.cat-target:focus{{stroke:#fff;stroke-width:5;stroke-dasharray:8 7;stroke-opacity:.8}}.below{{text-align:center;line-height:1.3;padding:14px 8px 0}}h1{{font-size:clamp(1.3rem,3.5vw,2rem);margin:0;font-weight:700}}#counter{{font-size:1.05rem;margin-top:5px}}#counter strong{{color:#c58bea}}#complete{{display:none;margin-top:10px;font-weight:700;color:#c58bea}}#complete.show{{display:block}}button{{display:none;margin:12px auto 0;padding:10px 18px;border:0;border-radius:999px;background:var(--purple);color:#fff;font:inherit;font-weight:700;cursor:pointer}}button.show{{display:block}}</style></head><body><main><div class="game"><svg viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg" aria-label="Find all 34 cats"><image href="../assets/cat-hunt-original.jpg" x="0" y="0" width="{w}" height="{h}" preserveAspectRatio="none"/><defs>{defs}</defs>{overlays}<g id="targets">{clickpaths}</g></svg></div><div class="below"><h1>Find all 34 cats!</h1><div id="counter"><strong>34</strong> cats left</div><div id="complete">You found them all!</div><button id="reset" type="button">Play again</button></div></main><script>(()=>{{const targets=[...document.querySelectorAll('.cat-target')],found=new Set();let ctx=null;function meow(){{try{{const A=window.AudioContext||window.webkitAudioContext;if(!A)return;if(!ctx)ctx=new A;if(ctx.state==='suspended')ctx.resume();const t=ctx.currentTime,o=ctx.createOscillator(),g=ctx.createGain();o.type='triangle';o.frequency.setValueAtTime(430,t);o.frequency.exponentialRampToValueAtTime(760,t+.12);o.frequency.exponentialRampToValueAtTime(390,t+.42);g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.16,t+.025);g.gain.exponentialRampToValueAtTime(.0001,t+.46);o.connect(g).connect(ctx.destination);o.start(t);o.stop(t+.48)}}catch(e){{}}}}function update(){{const left=34-found.size;document.querySelector('#counter strong').textContent=left;document.querySelector('#counter').lastChild.textContent=' '+(left===1?'cat left':'cats left');if(left===0){{document.querySelector('#complete').classList.add('show');document.querySelector('#reset').classList.add('show')}}}}function findCat(el){{const id=el.dataset.cat;if(found.has(id))return;found.add(id);const p=document.querySelector('#purple'+id);if(p)p.classList.add('found');el.setAttribute('aria-pressed','true');meow();update()}}targets.forEach(t=>{{t.addEventListener('click',()=>findCat(t));t.addEventListener('keydown',e=>{{if(e.key==='Enter'||e.key===' '){{e.preventDefault();findCat(t)}}}})}});document.querySelector('#reset').addEventListener('click',()=>location.reload())}})();</script></body></html>'''
+          Path('hidden-cat-hunt/index.html').write_text(html,encoding='utf-8')
+          print('Built 34 image-derived cat targets.')
+          PY
+      - name: Commit fixed game and remove temporary workflow
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add hidden-cat-hunt/index.html
+          git commit -m 'Fix hidden cat click targets and combine cat parts' || true
+          rm -f .github/workflows/rebuild-hidden-cat-game.yml
+          git add -u .github/workflows/rebuild-hidden-cat-game.yml
+          git commit -m 'Remove temporary cat game rebuild workflow' || true
+          git push
