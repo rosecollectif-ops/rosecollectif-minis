@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex,nofollow,noarchive">
 <title>Find All 34 Cats</title>
 <style>
-:root{--purple:#8b3fd1;--bg:#111}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);font-family:Arial,Helvetica,sans-serif}body{color:#111;display:flex;justify-content:center}.page{width:min(1100px,100%);padding:16px}header{background:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:20;border-radius:10px;margin-bottom:12px}h1{font-size:clamp(22px,4vw,34px);margin:0 0 5px;font-weight:800}#counter{font-size:18px;font-weight:700}#message{margin-top:6px;font-weight:800;color:var(--purple);min-height:1.2em}.controls{display:flex;justify-content:center;gap:8px;margin:10px 0}button{border:0;border-radius:8px;padding:10px 15px;font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:#111;touch-action:manipulation}button:active{transform:scale(.98)}#zoomLevel{align-self:center;color:#fff;font-size:14px;min-width:55px;text-align:center}.viewport{width:100%;overflow:auto;max-height:calc(100vh - 170px);background:#000;border-radius:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}.stage{position:relative;width:1006px;height:719px;transform-origin:top left}.stage img.main{position:absolute;inset:0;width:1006px;height:719px;display:block;user-select:none;-webkit-user-drag:none}.hotspot{position:absolute;padding:0;margin:0;border:0;background:transparent;cursor:pointer;z-index:5;outline:none;border-radius:3px}.hotspot.found{pointer-events:none}.hotspot:focus-visible{outline:3px solid #fff;box-shadow:0 0 0 5px var(--purple)}.cat-reveal{position:absolute;pointer-events:none;z-index:4;background-image:url("purple-cats.png");background-size:1006px 719px;background-repeat:no-repeat}.instructions{color:#fff;text-align:center;font-size:14px;margin:10px 0 0}@media (max-width:600px){.page{padding:8px}.controls{margin:8px 0}.viewport{max-height:calc(100vh - 150px)}button{padding:9px 13px}}
+:root{--purple:#8b3fd1;--bg:#111}*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);font-family:Arial,Helvetica,sans-serif}body{color:#111;display:flex;justify-content:center}.page{width:min(1100px,100%);padding:16px}header{background:#fff;padding:14px 16px;text-align:center;position:sticky;top:0;z-index:20;border-radius:10px;margin-bottom:12px}h1{font-size:clamp(22px,4vw,34px);margin:0 0 5px;font-weight:800}#counter{font-size:18px;font-weight:700}#message{margin-top:6px;font-weight:800;color:var(--purple);min-height:1.2em}.controls{display:flex;justify-content:center;gap:8px;margin:10px 0}button{border:0;border-radius:8px;padding:10px 15px;font-size:16px;font-weight:700;cursor:pointer;background:#fff;color:#111;touch-action:manipulation}button:active{transform:scale(.98)}#zoomLevel{align-self:center;color:#fff;font-size:14px;min-width:55px;text-align:center}.viewport{width:100%;overflow:auto;max-height:calc(100vh - 170px);background:#000;border-radius:10px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}.stage{position:relative;width:1006px;height:719px;transform-origin:top left}.stage img.main{position:absolute;inset:0;width:1006px;height:719px;display:block;user-select:none;-webkit-user-drag:none}.hotspot{position:absolute;padding:0;margin:0;border:0;background:transparent;cursor:pointer;z-index:5;outline:none;border-radius:3px}.hotspot.found{pointer-events:none}.hotspot:focus-visible{outline:none}.cat-reveal{position:absolute;left:0;top:0;width:1006px;height:719px;pointer-events:none;z-index:4}.instructions{color:#fff;text-align:center;font-size:14px;margin:10px 0 0}@media (max-width:600px){.page{padding:8px}.controls{margin:8px 0}.viewport{max-height:calc(100vh - 150px)}button{padding:9px 13px}}
 </style>
 </head>
 <body>
@@ -22,19 +22,83 @@
 </main>
 <script>
 (()=>{
-const TOTAL=34,hotspots=[...document.querySelectorAll('.hotspot')],counter=document.getElementById('counter'),message=document.getElementById('message'),meow=document.getElementById('meow'),stage=document.getElementById('stage'),viewport=document.getElementById('viewport'),zoomLevel=document.getElementById('zoomLevel');
+const TOTAL=34;
+const hotspots=[...document.querySelectorAll('.hotspot')];
+const counter=document.getElementById('counter');
+const message=document.getElementById('message');
+const meow=document.getElementById('meow');
+const stage=document.getElementById('stage');
+const zoomLevel=document.getElementById('zoomLevel');
 let found=0,zoom=1;
+
+// These are the 34 individual, full-canvas masks already uploaded to cat-game.
+// The duplicate older "mug cat.png" is deliberately not used; the newer
+// "mug cat test.png" is the mug mask being used for Cat 31.
+const maskFiles=[
+'cat above disco sign.png','cat behind cake.png','cat behind square on shelf on right.png','cat behind the sofa next to golf club.png','cat climbing up desk.png','cat coming out of circle on bookcase next to tent.png','cat hanging near pawprints on bookshelf.png','cat hiding in sofa arm next to penguin.png','cat hiding on computer chair.png','cat in computer screen.png','cat in elden ring photo.png','cat in mask.png','cat in shrek photo.png','cat in truck photo at the bottom of the photo.png','cat laying on back of sofa.png','cat laying on rug on the floor.png','cat laying on shelf above pc screen.png','cat licking paw.png','cat near creeper.png','cat near to picture of people.png','cat next to catan board game.png','cat next to dacshund.png','cat next to repo character.png','cat on bookcase near disco sign.png','cat on picture corner above pumpkins.png','cat sitting on floor bottom left.png','cat sleeping on floor near torch.png','cat top right.png','cat with just head sticking out from under table.png','laying in circle cat.png','mug cat test.png','pumpkin cat.png','table leg cat.png','wall head cat.png'
+];
+
+const masks=maskFiles.map(name=>({name,img:null,canvas:null,ctx:null,loaded:false}));
+const remaining=new Set(masks.map((_,i)=>i));
+
+function loadMask(mask){
+ return new Promise(resolve=>{
+  const img=new Image();
+  img.onload=()=>{
+   const canvas=document.createElement('canvas');canvas.width=1006;canvas.height=719;
+   const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,1006,719);
+   mask.img=img;mask.canvas=canvas;mask.ctx=ctx;mask.loaded=true;resolve(mask);
+  };
+  img.onerror=()=>resolve(mask);
+  img.src=''+encodeURI(namePath(mask.name));
+ });
+}
+function namePath(name){return './'+name.split('/').map(encodeURIComponent).join('/');}
+
+Promise.all(masks.map(loadMask));
+
+function purplePixel(r,g,b,a){
+ if(a<30)return false;
+ // Accept the purple used by the masks plus anti-aliased/shaded purple edges.
+ return r>70 && b>100 && g<130 && b>g*1.35 && r>g*1.25;
+}
+function scoreMask(mask,x,y,w,h){
+ if(!mask.loaded)return 0;
+ const sx=Math.max(0,Math.floor(x)),sy=Math.max(0,Math.floor(y));
+ const ex=Math.min(1006,Math.ceil(x+w)),ey=Math.min(719,Math.ceil(y+h));
+ if(ex<=sx||ey<=sy)return 0;
+ const data=mask.ctx.getImageData(sx,sy,ex-sx,ey-sy).data;
+ let score=0;
+ for(let i=0;i<data.length;i+=4)if(purplePixel(data[i],data[i+1],data[i+2],data[i+3]))score++;
+ return score;
+}
+function chooseMask(button){
+ const x=parseFloat(button.style.left),y=parseFloat(button.style.top),w=parseFloat(button.style.width),h=parseFloat(button.style.height);
+ let best=-1,bestScore=0;
+ for(const i of remaining){const s=scoreMask(masks[i],x,y,w,h);if(s>bestScore){bestScore=s;best=i;}}
+ return best;
+}
+function showMask(mask){
+ const img=document.createElement('img');
+ img.className='cat-reveal';img.src=namePath(mask.name);img.width=1006;img.height=719;img.alt='';
+ stage.appendChild(img);
+}
 function revealCat(button){
  if(button.classList.contains('found'))return;
- button.classList.add('found');found++;counter.textContent=`${found}/${TOTAL} Cats Found`;
- const x=parseFloat(button.style.left),y=parseFloat(button.style.top),w=parseFloat(button.style.width),h=parseFloat(button.style.height),reveal=document.createElement('div');
- reveal.className='cat-reveal';Object.assign(reveal.style,{left:`${x}px`,top:`${y}px`,width:`${w}px`,height:`${h}px`,backgroundPosition:`${-x}px ${-y}px`});stage.appendChild(reveal);
+ const maskIndex=chooseMask(button);
+ if(maskIndex<0){
+   // Still count the click, but do not create a wrong overlay.
+   button.classList.add('found');found++;counter.textContent=`${found}/${TOTAL} Cats Found`;
+ }else{
+   remaining.delete(maskIndex);button.classList.add('found');found++;counter.textContent=`${found}/${TOTAL} Cats Found`;showMask(masks[maskIndex]);
+ }
  try{meow.currentTime=0;const p=meow.play();if(p)p.catch(()=>{});}catch(_){}
  if(found===TOTAL)message.textContent='You found all 34 cats!';
 }
 hotspots.forEach(h=>h.addEventListener('click',()=>revealCat(h)));
 function setZoom(next){zoom=Math.max(.5,Math.min(3,next));stage.style.transform=`scale(${zoom})`;stage.style.marginRight=`${1006*(zoom-1)}px`;stage.style.marginBottom=`${719*(zoom-1)}px`;zoomLevel.textContent=`${Math.round(zoom*100)}%`}
-document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
+document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));
+document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
 })();
 </script>
 </body>
