@@ -30,70 +30,110 @@ const meow=document.getElementById('meow');
 const stage=document.getElementById('stage');
 const zoomLevel=document.getElementById('zoomLevel');
 
-const maskForCat={
-1:"cat above disco sign.png",
-2:"cat on bookcase near disco sign.png",
-3:"cat top right.png",
-4:"cat in elden ring photo.png",
-5:"cat in shrek photo.png",
-6:"cat hanging near pawprints on bookshelf.png",
-7:"cat hiding in sofa arm next to penguin.png",
-8:"cat climbing up desk.png",
-9:"cat laying on shelf above pc screen.png",
-10:"cat near to picture of people.png",
-11:"cat behind cake.png",
-12:"cat behind square on shelf on right.png",
-13:"wall head cat.png",
-14:"cat in mask.png",
-15:"cat next to catan board game.png",
-16:"cat in computer screen.png",
-17:"cat next to repo character.png",
-18:"cat on picture corner above pumpkins.png",
-19:"cat next to dacshund.png",
-20:"cat laying on back of sofa.png",
-21:"cat behind the sofa next to golf club.png",
-22:"cat in truck photo at the bottom of the photo.png",
-23:"cat coming out of circle on bookcase next to tent.png",
-24:"pumpkin cat.png",
-25:"mug cat.png",
-26:"cat licking paw.png",
-27:"table leg cat.png",
-28:"cat sitting on floor bottom left.png",
-29:"laying in circle cat.png",
-30:"cat sleeping on floor near torch.png",
-31:"cat near creeper.png",
-32:"cat hiding on computer chair.png",
-33:"cat laying on rug on the floor.png",
-34:"cat with just head sticking out from under table.png"
-};
+const maskFiles=[
+"cat above disco sign.png",
+"cat behind cake.png",
+"cat behind square on shelf on right.png",
+"cat behind the sofa next to golf club.png",
+"cat climbing up desk.png",
+"cat coming out of circle on bookcase next to tent.png",
+"cat hanging near pawprints on bookshelf.png",
+"cat hiding in sofa arm next to penguin.png",
+"cat hiding on computer chair.png",
+"cat in computer screen.png",
+"cat in elden ring photo.png",
+"cat in mask.png",
+"cat in shrek photo.png",
+"cat in truck photo at the bottom of the photo.png",
+"cat laying on back of sofa.png",
+"cat laying on rug on the floor.png",
+"cat laying on shelf above pc screen.png",
+"cat licking paw.png",
+"cat near creeper.png",
+"cat near to picture of people.png",
+"cat next to catan board game.png",
+"cat next to dacshund.png",
+"cat next to repo character.png",
+"cat on bookcase near disco sign.png",
+"cat on picture corner above pumpkins.png",
+"cat sitting on floor bottom left.png",
+"cat sleeping on floor near torch.png",
+"cat top right.png",
+"cat with just head sticking out from under table.png",
+"laying in circle cat.png",
+"mug cat.png",
+"pumpkin cat.png",
+"table leg cat.png",
+"wall head cat.png"
+];
 
+const masks=[];
 let found=0,zoom=1,ready=false;
 
-function preloadMasks(done){
-  const files=Object.values(maskForCat);
-  let remaining=files.length;
-  const loaded=new Set();
-
-  files.forEach(file=>{
+function loadMask(file){
+  return new Promise(resolve=>{
     const img=new Image();
     img.onload=()=>{
-      loaded.add(file);
-      if(--remaining===0)done();
+      const canvas=document.createElement('canvas');
+      canvas.width=W; canvas.height=H;
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(img,0,0,W,H);
+      const data=ctx.getImageData(0,0,W,H).data;
+      masks.push({file,data});
+      resolve();
     };
     img.onerror=()=>{
       console.error('Could not load cat mask:',file);
-      if(--remaining===0)done();
+      resolve();
     };
     img.src=encodeURI(file);
   });
 }
 
+function rectFromHotspot(button){
+  const left=parseFloat(button.style.left)||0;
+  const top=parseFloat(button.style.top)||0;
+  const width=parseFloat(button.style.width)||0;
+  const height=parseFloat(button.style.height)||0;
+  return {left,top,right:left+width,bottom:top+height};
+}
+
+function maskHitScore(mask,rect){
+  const x0=Math.max(0,Math.floor(rect.left));
+  const y0=Math.max(0,Math.floor(rect.top));
+  const x1=Math.min(W,Math.ceil(rect.right));
+  const y1=Math.min(H,Math.ceil(rect.bottom));
+  let score=0;
+  for(let y=y0;y<y1;y++){
+    let i=(y*W+x0)*4;
+    for(let x=x0;x<x1;x++,i+=4){
+      if(mask.data[i+3]>20) score++;
+    }
+  }
+  return score;
+}
+
+function findMaskForHotspot(button){
+  const rect=rectFromHotspot(button);
+  let best=null,bestScore=0;
+  for(const mask of masks){
+    const score=maskHitScore(mask,rect);
+    if(score>bestScore){
+      bestScore=score;
+      best=mask;
+    }
+  }
+  return best;
+}
+
 function revealCat(button){
   if(!ready||button.classList.contains('found'))return;
 
-  const catNumber=Number(button.dataset.cat);
-  const file=maskForCat[catNumber];
-  if(!file)return;
+  const mask=findMaskForHotspot(button);
+  if(!mask){
+    console.warn('No mask found for clicked hotspot:',button.dataset.cat);
+    return;
+  }
 
   button.classList.add('found');
 
@@ -101,7 +141,7 @@ function revealCat(button){
   img.className='cat-reveal';
   img.alt='';
   img.setAttribute('aria-hidden','true');
-  img.src=encodeURI(file);
+  img.src=encodeURI(mask.file);
   img.width=W;
   img.height=H;
   stage.appendChild(img);
@@ -134,7 +174,7 @@ function setZoom(next){
 document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));
 document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
 
-preloadMasks(()=>{
+Promise.all(maskFiles.map(loadMask)).then(()=>{
   ready=true;
   hotspots.forEach(h=>h.disabled=false);
 });
