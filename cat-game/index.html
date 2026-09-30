@@ -23,106 +23,32 @@
 <script>
 (()=>{
 const TOTAL=34;
+const W=1006,H=719;
 const hotspots=[...document.querySelectorAll('.hotspot')];
 const counter=document.getElementById('counter');
 const message=document.getElementById('message');
 const meow=document.getElementById('meow');
 const stage=document.getElementById('stage');
-const viewport=document.getElementById('viewport');
 const zoomLevel=document.getElementById('zoomLevel');
 
+const maskFiles=["cat above disco sign.png","cat behind cake.png","cat behind square on shelf on right.png","cat behind the sofa next to golf club.png","cat climbing up desk.png","cat coming out of circle on bookcase next to tent.png","cat hanging near pawprints on bookshelf.png","cat hiding in sofa arm next to penguin.png","cat hiding on computer chair.png","cat in computer screen.png","cat in elden ring photo.png","cat in mask.png","cat in shrek photo.png","cat in truck photo at the bottom of the photo.png","cat laying on back of sofa.png","cat laying on rug on the floor.png","cat laying on shelf above pc screen.png","cat licking paw.png","cat near creeper.png","cat near to picture of people.png","cat next to catan board game.png","cat next to dacshund.png","cat next to repo character.png","cat on bookcase near disco sign.png","cat on picture corner above pumpkins.png","cat sitting on floor bottom left.png","cat sleeping on floor near torch.png","cat top right.png","cat with just head sticking out from under table.png","laying in circle cat.png","mug cat.png","pumpkin cat.png","table leg cat.png","wall head cat.png"];
 let found=0,zoom=1,ready=false;
-const W=1006,H=719;
-const individualCatFiles={13:'cat13.png',25:'cat25.png',27:'cat27.png',29:'cat29.png'};
-let sourcePixels=null,labels=null,components=[],componentHotspots=[];
-let specialCatMask=null;
+const maskForCat={};
 
-const purpleImage=new Image();
-purpleImage.src='purple-cats.png';
-
-function buildPurpleMap(){
-  const canvas=document.createElement('canvas');
-  canvas.width=W;canvas.height=H;
-  const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  ctx.drawImage(purpleImage,0,0,W,H);
-  sourcePixels=ctx.getImageData(0,0,W,H).data;
-  labels=new Int32Array(W*H);
-
-  const queue=new Int32Array(W*H);
-  let componentId=0;
-
-  for(let y=0;y<H;y++){
-    for(let x=0;x<W;x++){
-      const startIndex=y*W+x;
-      if(labels[startIndex]!==0) continue;
-      if(sourcePixels[startIndex*4+3]<12) continue;
-
-      componentId++;
-      let head=0,tail=0;
-      queue[tail++]=startIndex;
-      labels[startIndex]=componentId;
-
-      let minX=x,maxX=x,minY=y,maxY=y;
-
-      while(head<tail){
-        const p=queue[head++];
-        const px=p%W,py=(p/W)|0;
-
-        if(px<minX)minX=px;
-        if(px>maxX)maxX=px;
-        if(py<minY)minY=py;
-        if(py>maxY)maxY=py;
-
-        for(let dy=-1;dy<=1;dy++){
-          for(let dx=-1;dx<=1;dx++){
-            if(dx===0&&dy===0)continue;
-            const nx=px+dx,ny=py+dy;
-            if(nx<0||nx>=W||ny<0||ny>=H)continue;
-            const ni=ny*W+nx;
-            if(labels[ni]!==0)continue;
-            if(sourcePixels[ni*4+3]<12)continue;
-            labels[ni]=componentId;
-            queue[tail++]=ni;
-          }
-        }
-      }
-
-      components[componentId]={
-        minX,minY,maxX,maxY
-      };
-    }
-  }
-
-  /*
-    Some cats touch in the purple overlay and therefore form one
-    connected component. Keep that component, but remember which
-    hotspots belong to it so we can split it between the cats.
-  */
-  componentHotspots=Array.from({length:components.length},()=>[]);
-  for(let id=1;id<components.length;id++){
-    const box=components[id];
-    for(const h of hotspots){
-      const hx=parseFloat(h.style.left),hy=parseFloat(h.style.top);
-      const hw=parseFloat(h.style.width),hh=parseFloat(h.style.height);
-      if(box.maxX>=hx && box.minX<=hx+hw && box.maxY>=hy && box.minY<=hy+hh){
-        componentHotspots[id].push(h);
-      }
-    }
-  }
-
-  loadSpecialCatMask(()=>{
-    ready=true;
-    hotspots.forEach(h=>h.disabled=false);
-  });
+function hotspotBox(h){
+  return {
+    x:parseFloat(h.style.left)||0,
+    y:parseFloat(h.style.top)||0,
+    w:parseFloat(h.style.width)||0,
+    h:parseFloat(h.style.height)||0
+  };
 }
 
-function loadSpecialCatMask(done){
-  specialCatMask=new Uint8Array(W*H);
-  const entries=Object.entries(individualCatFiles);
-  let remaining=entries.length;
-  if(!remaining){done();return;}
+function buildMaskMap(done){
+  let remaining=maskFiles.length;
+  const results=[];
 
-  entries.forEach(([catNumber,file])=>{
+  maskFiles.forEach((file,index)=>{
     const img=new Image();
     img.onload=()=>{
       const canvas=document.createElement('canvas');
@@ -130,138 +56,160 @@ function loadSpecialCatMask(done){
       const ctx=canvas.getContext('2d',{willReadFrequently:true});
       ctx.drawImage(img,0,0,W,H);
       const data=ctx.getImageData(0,0,W,H).data;
-      for(let i=0,p=0;i<data.length;i+=4,p++){
-        if(data[i+3]>=12)specialCatMask[p]=1;
+
+      let minX=W,maxX=-1,minY=H,maxY=-1,sumX=0,sumY=0,count=0;
+      for(let y=0;y<H;y++){
+        for(let x=0;x<W;x++){
+          const a=data[(y*W+x)*4+3];
+          if(a<12)continue;
+          if(x<minX)minX=x;
+          if(x>maxX)maxX=x;
+          if(y<minY)minY=y;
+          if(y>maxY)maxY=y;
+          sumX+=x;sumY+=y;count++;
+        }
       }
-      if(--remaining===0)done();
+
+      if(count){
+        const cx=sumX/count,cy=sumY/count;
+        let bestHotspot=null,bestScore=-1;
+
+        for(const h of hotspots){
+          const b=hotspotBox(h);
+          let overlap=0;
+
+          const ix0=Math.max(minX,b.x);
+          const ix1=Math.min(maxX,b.x+b.w);
+          const iy0=Math.max(minY,b.y);
+          const iy1=Math.min(maxY,b.y+b.h);
+
+          if(ix1>=ix0&&iy1>=iy0){
+            overlap=(ix1-ix0+1)*(iy1-iy0+1);
+          }
+
+          const hx=b.x+b.w/2,hy=b.y+b.h/2;
+          const dx=cx-hx,dy=cy-hy;
+          const distance=Math.sqrt(dx*dx+dy*dy);
+
+          // Any real overlap is much stronger evidence than distance.
+          const score=overlap>0 ? 100000000+overlap : 100000-distance;
+          if(score>bestScore){
+            bestScore=score;
+            bestHotspot=h;
+          }
+        }
+
+        results.push({file,index,hotspot:bestHotspot});
+      }else{
+        results.push({file,index,hotspot:null});
+      }
+
+      if(--remaining===0){
+        // Resolve the one-to-one mapping. If two masks chose the same
+        // hotspot, keep the mask with the strongest geometric match and
+        // assign the displaced mask to its next-best hotspot.
+        const used=new Set();
+        const sorted=[...results].sort((a,b)=>a.index-b.index);
+
+        for(const r of sorted){
+          if(!r.hotspot)continue;
+          const n=Number(r.hotspot.dataset.cat);
+          if(!used.has(n)){
+            maskForCat[n]=r.file;
+            used.add(n);
+          }
+        }
+
+        // A second pass handles any collision by nearest hotspot whose
+        // position overlaps the mask bounds.
+        for(const r of sorted){
+          if(!r.hotspot)continue;
+          if(Object.values(maskForCat).includes(r.file))continue;
+
+          const img=new Image();
+          img.onload=()=>{
+            const c=document.createElement('canvas');
+            c.width=W;c.height=H;
+            const cx=c.getContext('2d',{willReadFrequently:true});
+            cx.drawImage(img,0,0,W,H);
+            const d=cx.getImageData(0,0,W,H).data;
+            let sx=0,sy=0,n=0;
+            for(let y=0;y<H;y++){
+              for(let x=0;x<W;x++){
+                if(d[(y*W+x)*4+3]>=12){sx+=x;sy+=y;n++;}
+              }
+            }
+            if(n){
+              const mx=sx/n,my=sy/n;
+              let best=null,bd=Infinity;
+              for(const h of hotspots){
+                const cat=Number(h.dataset.cat);
+                if(maskForCat[cat])continue;
+                const b=hotspotBox(h);
+                const hx=b.x+b.w/2,hy=b.y+b.h/2;
+                const dd=(mx-hx)*(mx-hx)+(my-hy)*(my-hy);
+                if(dd<bd){bd=dd;best=h;}
+              }
+              if(best)maskForCat[Number(best.dataset.cat)]=r.file;
+            }
+            if(Object.keys(maskForCat).length>=TOTAL) finish();
+          };
+          img.onerror=()=>{ if(--remaining===0) finish(); };
+          img.src=encodeURI(r.file);
+        }
+
+        if(Object.keys(maskForCat).length>=TOTAL)finish();
+        else if(sorted.filter(r=>!r.hotspot).length===0 && sorted.length===TOTAL){
+          // All masks had a valid hotspot; normal path should already fill all.
+          finish();
+        }
+      }
     };
     img.onerror=()=>{
+      console.error('Could not load cat mask:',file);
       if(--remaining===0)done();
     };
-    img.src=file;
+    img.src=encodeURI(file);
   });
-}
 
-purpleImage.onload=buildPurpleMap;
-
-hotspots.forEach(h=>h.disabled=true);
-
-function getComponentsForHotspot(button){
-  const x=Math.max(0,Math.floor(parseFloat(button.style.left)));
-  const y=Math.max(0,Math.floor(parseFloat(button.style.top)));
-  const w=Math.ceil(parseFloat(button.style.width));
-  const h=Math.ceil(parseFloat(button.style.height));
-  const ids=new Set();
-
-  for(let py=y;py<Math.min(H,y+h);py++){
-    for(let px=x;px<Math.min(W,x+w);px++){
-      const id=labels[py*W+px];
-      if(id)ids.add(id);
-    }
+  function finish(){
+    if(ready)return;
+    ready=true;
+    hotspots.forEach(h=>h.disabled=false);
   }
-  return [...ids];
-}
-
-function hotspotCenter(button){
-  return {
-    x:parseFloat(button.style.left)+parseFloat(button.style.width)/2,
-    y:parseFloat(button.style.top)+parseFloat(button.style.height)/2
-  };
 }
 
 function revealCat(button){
   if(!ready||button.classList.contains('found'))return;
 
   const catNumber=Number(button.dataset.cat);
-  if(individualCatFiles[catNumber]){
-    button.classList.add('found');
-    found++;
-    counter.textContent=found+'/'+TOTAL+' Cats Found';
-
-    const img=document.createElement('img');
-    img.className='cat-reveal';
-    img.alt='';
-    img.setAttribute('aria-hidden','true');
-    img.src=individualCatFiles[catNumber];
-    img.width=W;
-    img.height=H;
-    stage.appendChild(img);
-
-    img.onerror=()=>{
-      img.remove();
-      button.classList.remove('found');
-      found--;
-      counter.textContent=found+'/'+TOTAL+' Cats Found';
-    };
-
-    try{
-      meow.currentTime=0;
-      const p=meow.play();
-      if(p)p.catch(()=>{});
-    }catch(_){}
-
-    if(found===TOTAL)message.textContent='You found all 34 cats!';
-    return;
-  }
-
-  const ids=getComponentsForHotspot(button);
-  if(!ids.length)return;
-
-  const canvas=document.createElement('canvas');
-  canvas.className='cat-reveal';
-  canvas.width=W;
-  canvas.height=H;
-  const ctx=canvas.getContext('2d');
-  const out=ctx.createImageData(W,H);
-  let revealedAny=false;
-
-  for(const id of ids){
-    const box=components[id];
-    const candidates=componentHotspots[id]||[];
-    const owners=candidates.length?candidates:[button];
-
-    for(let py=box.minY;py<=box.maxY;py++){
-      for(let px=box.minX;px<=box.maxX;px++){
-        const p=py*W+px;
-        if(labels[p]!==id)continue;
-        if(specialCatMask && specialCatMask[p])continue;
-        let owner=owners[0];
-        let best=Infinity;
-        let second=Infinity;
-        for(const candidate of owners){
-          const cc=hotspotCenter(candidate);
-          const dx=px-cc.x,dy=py-cc.y;
-          const d=dx*dx+dy*dy;
-          if(d<best){second=best;best=d;owner=candidate;}
-          else if(d<second)second=d;
-        }
-        if(owner!==button || (second-best)<25)continue;
-        const s=p*4;
-        out.data[s]=sourcePixels[s];
-        out.data[s+1]=sourcePixels[s+1];
-        out.data[s+2]=sourcePixels[s+2];
-        out.data[s+3]=sourcePixels[s+3];
-        revealedAny=true;
-      }
-    }
-  }
-
-  if(!revealedAny)return;
+  const file=maskForCat[catNumber];
+  if(!file)return;
 
   button.classList.add('found');
   found++;
   counter.textContent=found+'/'+TOTAL+' Cats Found';
 
-  ctx.putImageData(out,0,0);
-  stage.appendChild(canvas);
+  const img=document.createElement('img');
+  img.className='cat-reveal';
+  img.alt='';
+  img.setAttribute('aria-hidden','true');
+  img.src=encodeURI(file);
+  img.width=W;
+  img.height=H;
+  stage.appendChild(img);
+
   try{
     meow.currentTime=0;
     const p=meow.play();
     if(p)p.catch(()=>{});
   }catch(_){}
+
   if(found===TOTAL)message.textContent='You found all 34 cats!';
 }
+
 hotspots.forEach(h=>{
+  h.disabled=true;
   h.addEventListener('click',()=>revealCat(h));
 });
 
@@ -273,13 +221,10 @@ function setZoom(next){
   zoomLevel.textContent=`${Math.round(zoom*100)}%`;
 }
 
-document.getElementById('zoomIn')
-  .addEventListener('click',()=>setZoom(zoom+.25));
+document.getElementById('zoomIn').addEventListener('click',()=>setZoom(zoom+.25));
+document.getElementById('zoomOut').addEventListener('click',()=>setZoom(zoom-.25));
 
-document.getElementById('zoomOut')
-  .addEventListener('click',()=>setZoom(zoom-.25));
-
-
+buildMaskMap();
 })();
 </script>
 </body>
