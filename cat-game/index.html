@@ -114,6 +114,10 @@ function maskHitScore(mask,rect){
 }
 
 function findMaskForHotspot(button){
+  if(button.dataset.cat==="25"){
+    const mug=masks.find(m=>m.file==="mug cat test.png");
+    if(mug)return mug;
+  }
   const rect=rectFromHotspot(button);
   let best=null,bestScore=0;
   for(const mask of masks){
