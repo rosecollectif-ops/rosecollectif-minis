@@ -33,6 +33,7 @@ const zoomLevel=document.getElementById('zoomLevel');
 
 let found=0,zoom=1,ready=false;
 const W=1006,H=719;
+const individualCatFiles={13:'cat13.png',25:'cat25.png',27:'cat27.png',29:'cat29.png'};
 let sourcePixels=null,labels=null,components=[],componentHotspots=[];
 
 const purpleImage=new Image();
@@ -142,29 +143,52 @@ function hotspotCenter(button){
 function revealCat(button){
   if(!ready||button.classList.contains('found'))return;
 
-  const ids=getComponentsForHotspot(button);
+  const catNumber=Number(button.dataset.cat);
+  if(individualCatFiles[catNumber]){
+    button.classList.add('found');
+    found++;
+    counter.textContent=found+'/'+TOTAL+' Cats Found';
 
-  if(!ids.length){
+    const img=document.createElement('img');
+    img.className='cat-reveal';
+    img.alt='';
+    img.setAttribute('aria-hidden','true');
+    img.src=individualCatFiles[catNumber];
+    img.width=W;
+    img.height=H;
+    stage.appendChild(img);
+
+    img.onerror=()=>{
+      img.remove();
+      button.classList.remove('found');
+      found--;
+      counter.textContent=found+'/'+TOTAL+' Cats Found';
+    };
+
+    try{
+      meow.currentTime=0;
+      const p=meow.play();
+      if(p)p.catch(()=>{});
+    }catch(_){}
+
+    if(found===TOTAL)message.textContent='You found all 34 cats!';
     return;
   }
 
+  const ids=getComponentsForHotspot(button);
+  if(!ids.length)return;
+
   button.classList.add('found');
   found++;
-  counter.textContent=`${found}/${TOTAL} Cats Found`;
+  counter.textContent=found+'/'+TOTAL+' Cats Found';
 
   const canvas=document.createElement('canvas');
   canvas.className='cat-reveal';
   canvas.width=W;
   canvas.height=H;
-
   const ctx=canvas.getContext('2d');
   const out=ctx.createImageData(W,H);
 
-  /*
-    Copy only the purple pixels belonging to the component(s)
-    touched by this cat's hotspot. The hotspot is therefore
-    only the click target, not the reveal boundary.
-  */
   for(const id of ids){
     const box=components[id];
     const candidates=componentHotspots[id]||[];
@@ -174,13 +198,6 @@ function revealCat(button){
       for(let px=box.minX;px<=box.maxX;px++){
         const p=py*W+px;
         if(labels[p]!==id)continue;
-
-        /*
-          If two cats touch and share one connected purple component,
-          divide the component by distance to the individual hotspot
-          centres. This keeps the cats separate without changing the
-          background image or the clickable areas.
-        */
         let owner=owners[0];
         let best=Infinity;
         let second=Infinity;
@@ -188,22 +205,10 @@ function revealCat(button){
           const cc=hotspotCenter(candidate);
           const dx=px-cc.x,dy=py-cc.y;
           const d=dx*dx+dy*dy;
-          if(d<best){
-            second=best;
-            best=d;
-            owner=candidate;
-          }else if(d<second){
-            second=d;
-          }
+          if(d<best){second=best;best=d;owner=candidate;}
+          else if(d<second)second=d;
         }
-
-        /*
-          Leave a tiny transparent seam between touching cats. This
-          prevents purple from bleeding across the boundary while
-          preserving the full silhouette on either side.
-        */
         if(owner!==button || (second-best)<25)continue;
-
         const s=p*4;
         out.data[s]=sourcePixels[s];
         out.data[s+1]=sourcePixels[s+1];
@@ -215,18 +220,13 @@ function revealCat(button){
 
   ctx.putImageData(out,0,0);
   stage.appendChild(canvas);
-
   try{
     meow.currentTime=0;
     const p=meow.play();
     if(p)p.catch(()=>{});
   }catch(_){}
-
-  if(found===TOTAL){
-    message.textContent='You found all 34 cats!';
-  }
+  if(found===TOTAL)message.textContent='You found all 34 cats!';
 }
-
 hotspots.forEach(h=>{
   h.addEventListener('click',()=>revealCat(h));
 });
