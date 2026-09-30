@@ -33,7 +33,7 @@ const zoomLevel=document.getElementById('zoomLevel');
 
 let found=0,zoom=1,ready=false;
 const W=1006,H=719;
-let sourcePixels=null,labels=null,components=[];
+let sourcePixels=null,labels=null,components=[],componentHotspots=[];
 
 const purpleImage=new Image();
 purpleImage.src='purple-cats.png';
@@ -91,6 +91,23 @@ function buildPurpleMap(){
     }
   }
 
+  /*
+    Some cats touch in the purple overlay and therefore form one
+    connected component. Keep that component, but remember which
+    hotspots belong to it so we can split it between the cats.
+  */
+  componentHotspots=Array.from({length:components.length},()=>[]);
+  for(let id=1;id<components.length;id++){
+    const box=components[id];
+    for(const h of hotspots){
+      const hx=parseFloat(h.style.left),hy=parseFloat(h.style.top);
+      const hw=parseFloat(h.style.width),hh=parseFloat(h.style.height);
+      if(box.maxX>=hx && box.minX<=hx+hw && box.maxY>=hy && box.minY<=hy+hh){
+        componentHotspots[id].push(h);
+      }
+    }
+  }
+
   ready=true;
   hotspots.forEach(h=>h.disabled=false);
 }
@@ -104,7 +121,6 @@ function getComponentsForHotspot(button){
   const y=Math.max(0,Math.floor(parseFloat(button.style.top)));
   const w=Math.ceil(parseFloat(button.style.width));
   const h=Math.ceil(parseFloat(button.style.height));
-
   const ids=new Set();
 
   for(let py=y;py<Math.min(H,y+h);py++){
@@ -113,8 +129,14 @@ function getComponentsForHotspot(button){
       if(id)ids.add(id);
     }
   }
-
   return [...ids];
+}
+
+function hotspotCenter(button){
+  return {
+    x:parseFloat(button.style.left)+parseFloat(button.style.width)/2,
+    y:parseFloat(button.style.top)+parseFloat(button.style.height)/2
+  };
 }
 
 function revealCat(button){
@@ -145,10 +167,33 @@ function revealCat(button){
   */
   for(const id of ids){
     const box=components[id];
+    const candidates=componentHotspots[id]||[];
+    const owners=candidates.length?candidates:[button];
+
     for(let py=box.minY;py<=box.maxY;py++){
       for(let px=box.minX;px<=box.maxX;px++){
         const p=py*W+px;
         if(labels[p]!==id)continue;
+
+        /*
+          If two cats touch and share one connected purple component,
+          divide the component by distance to the individual hotspot
+          centres. This keeps the cats separate without changing the
+          background image or the clickable areas.
+        */
+        let owner=owners[0];
+        let best=Infinity;
+        for(const candidate of owners){
+          const cc=hotspotCenter(candidate);
+          const dx=px-cc.x,dy=py-cc.y;
+          const d=dx*dx+dy*dy;
+          if(d<best){
+            best=d;
+            owner=candidate;
+          }
+        }
+
+        if(owner!==button)continue;
 
         const s=p*4;
         out.data[s]=sourcePixels[s];
@@ -194,7 +239,7 @@ document.getElementById('zoomOut')
 document.getElementById('resetZoom')
   .addEventListener('click',()=>{
     setZoom(1);
-    viewport.scrollTo({left:0,top:0,behavior:'smooth'});
+    viewport.scrollTo({left:0,top:0,behavior:'auto'});
   });
 
 })();
